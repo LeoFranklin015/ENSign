@@ -1,0 +1,17 @@
+@solady/=lib/justanaccount/lib/solady/src/
+@account-abstraction/=lib/justanaccount/lib/account-abstraction/contracts/
+@openzeppelin/contracts/=lib/justanaccount/lib/openzeppelin-contracts/contracts/
+@openzeppelin/contracts-v5/=lib/justanaccount/lib/openzeppelin-contracts/contracts/
+@openzeppelin/contracts-upgradeable/=lib/contracts-v2/contracts/lib/openzeppelin-contracts-upgradeable/contracts/
+@ens/contracts/=lib/contracts-v2/contracts/lib/ens-contracts/contracts/
+@ensdomains/buffer/=lib/contracts-v2/contracts/lib/buffer/
+@ensdomains/verifiable-factory/=lib/contracts-v2/contracts/lib/verifiable-factory/src/
+@unruggable/gateways/=lib/contracts-v2/contracts/lib/unruggable-gateways/
+@account/=src/account/
+@ensv2/=lib/contracts-v2/contracts/src/
+forge-std/=lib/justanaccount/lib/forge-std/src/
+solady/=lib/justanaccount/lib/solady/src/
+lib/contracts-v2/contracts/lib/ens-contracts/:@openzeppelin/contracts/=lib/contracts-v2/contracts/lib/openzeppelin-contracts-v4/contracts/
+lib/contracts-v2/contracts/lib/ens-contracts/:@openzeppelin/contracts-v5/=lib/contracts-v2/contracts/lib/openzeppelin-contracts/contracts/
+lib/contracts-v2/contracts/lib/ens-contracts/:@ensdomains/solsha1/contracts/=lib/contracts-v2/contracts/lib/solsha1/contracts/
+lib/contracts-v2/contracts/lib/ens-contracts/:@unruggable/gateways/=lib/contracts-v2/contracts/lib/unruggable-gateways/contracts/

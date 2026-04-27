@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  check-types:
+    name: Check Types
+    runs-on: ubuntu-latest
+    steps:
+      # setup
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+
+      - name: Compile and check types
+        run: cd contracts && bun compile:hardhat && bun check:types
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      # setup
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+
+      - name: Run E2E tests
+        run: |
+          cd contracts && \
+          bun run test:e2e
+
+  forge-tests:
+    name: Forge Tests
+    runs-on: ubuntu-latest
+    steps:
+      # setup
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+
+      - uses: awalsh128/cache-apt-pkgs-action@v1.5.3
+        with:
+          packages: lcov
+          version: 1.0
+
+      - name: Run forge tests
+        run: |
+          cd contracts && \
+          bun run coverage:forge && \
+          bun run coverage:reports
+
+      - name: Upload coverage
+        run: cd contracts && bun run coverage:upload
+        env:
+          CC_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          CC_GIT_SERVICE: github
+          CC_SHA: ${{ github.sha }}
+
+  hardhat-tests:
+    name: Hardhat Tests
+    runs-on: ubuntu-latest
+    steps:
+      # setup
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+
+      - uses: awalsh128/cache-apt-pkgs-action@v1.5.3
+        with:
+          packages: lcov
+          version: 1.0
+
+      - name: Run hardhat tests
+        run: |
+          cd contracts && \
+          mkdir -p coverage/ && \
+          bun run coverage:hardhat && \
+          bun run coverage:reports
+
+      - name: Upload coverage
+        run: cd contracts && bun run coverage:upload
+        env:
+          CC_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          CC_GIT_SERVICE: github
+          CC_SHA: ${{ github.sha }}
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      # setup
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+
+      - name: Lint
+        run: bun --filter contracts lint
+
+  publish-docker:
+    name: Publish Docker Image
+    if: github.ref == 'refs/heads/main'
+    needs: [check-types, forge-tests, hardhat-tests, lint]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          submodules: "recursive"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the Github Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get branch name and short SHA for tagging
+        id: branch
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "name=${{ github.head_ref }}" >> $GITHUB_OUTPUT
+            SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
+          else
+            echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          fi
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ steps.branch.outputs.name }}-${{ steps.branch.outputs.short_sha }}
+            type=raw,value=latest,enable=${{ github.ref_name == github.event.repository.default_branch }}
+            type=ref,event=tag
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: GITHUB_SHA=${{ github.sha }}
+          labels: ${{ steps.meta.outputs.labels }}

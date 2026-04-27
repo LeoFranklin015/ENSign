@@ -1,0 +1,56 @@
+[profile.default]
+src = "src"
+out = "out"
+evm_version = "prague"
+libs = ["lib"]
+remappings = [
+  '@account-abstraction/=lib/account-abstraction/contracts/',
+  '@solady/=lib/solady/src/',
+  '@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/',
+]
+
+optimizer = true
+optimizer_runs = 20000
+
+[profile.solx]
+src = "src"
+out = "out"
+evm_version = "prague"
+libs = ["lib"]
+remappings = [
+  '@account-abstraction/=lib/account-abstraction/contracts/',
+  '@solady/=lib/solady/src/',
+  '@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/',
+]
+
+optimizer = true
+optimizer_runs = 20000
+
+[fuzz]
+runs = 256
+
+[fmt]
+# Line length configuration
+line_length = 120                    
+# Indentation and spacing
+tab_width = 4                        
+bracket_spacing = true               
+# String formatting
+quote_style = "double"               
+# Integer type formatting  
+int_types = "long"                   
+# Number formatting
+number_underscore = "thousands"      
+# Function header formatting
+multiline_func_header = "all"        
+# Import organization
+sort_imports = true                  
+# Override spacing
+override_spacing = true              
+# Contract spacing
+contract_new_lines = true            
+# Statement blocks
+single_line_statement_blocks = "multi" 
+
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

@@ -1,0 +1,77 @@
+name: Unruggable Gateways CI
+on: [push, pull_request_target]
+defaults:
+ run:
+  working-directory: ./
+jobs:
+  test:
+    name: Test v2 on Node ${{ matrix.node }} and ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        node: ['20.x']
+        os: [ubuntu-latest]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Use Bun 1.1.26
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.1.26
+
+      - name: Use Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Pull & update submodules recursively
+        run: |
+          git submodule update --init --recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1.3.1
+              
+      - name: Install Dependencies
+        run: bun install
+
+      - name: 'Create env file'
+        run: |
+          touch .env
+          echo PROVIDER_ORDER_HOODI=drpc >> .env
+          echo ALCHEMY_KEY=${{ secrets.ALCHEMY_KEY }} >> .env
+          echo INFURA_KEY=${{ secrets.INFURA_KEY }} >> .env
+          echo DRPC_KEY=${{ secrets.DRPC_KEY }} >> .env
+          echo IS_CI=true >> .env
+          cat .env
+
+      - name: Build
+        run: forge build
+
+      - name: Test Components (uses node internally)
+        run: bun run test-components
+
+      - name: Test Gateways (uses node internally)
+        run: |
+          for test in test/gateway/*.test.ts; do
+            IS_CI=true bun test "$test" --timeout 50000
+          done
+  lint:
+    name: Lint v2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Use Bun 1.1.26
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.1.26
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Lint
+        run: bun run lint

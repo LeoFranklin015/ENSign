@@ -1,0 +1,20 @@
+{
+  "name": "contracts-v2",
+  "private": true,
+  "engines": {
+    "node": "^24.1.0",
+    "bun": "^1.2.15"
+  },
+  "workspaces": [
+    "contracts",
+    "solhint-plugins"
+  ],
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "typescript": "^5.8.3"
+  },
+  "resolutions": {
+    "esbuild": "0.25.11"
+  },
+  "engineStrict": true
+}

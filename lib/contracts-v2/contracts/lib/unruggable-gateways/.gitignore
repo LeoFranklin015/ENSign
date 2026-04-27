@@ -1,0 +1,10 @@
+node_modules/
+cache/
+out/
+tempArtifacts/
+junk/
+dist/
+.vscode/
+.DS_Store
+*.tgz
+.env
