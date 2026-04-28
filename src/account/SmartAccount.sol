@@ -392,6 +392,34 @@ contract SmartAccount is BaseAccount, MultiOwnable, IERC165, Receiver, ERC1271 {
     }
 
     /**
+     * @notice Authorized executor modules — addresses allowed to call `execute` /
+     *         `executeBatch` on this account without being a full owner. The
+     *         account owner sets this via {setExecutor}.
+     * @dev Used by {ENSignAgentRegistry} so the manager can perform agent-gated
+     *      calls on the user's behalf without inheriting full owner power
+     *      (no key rotation, no executor changes).
+     */
+    mapping(address executor => bool authorized) public isExecutor;
+
+    /**
+     * @notice Emitted when an executor's authorization changes.
+     */
+    event ExecutorSet(address indexed executor, bool authorized);
+
+    /**
+     * @notice Authorize or revoke an executor. Only callable through the account
+     *         itself (i.e., via owner-signed UserOp / self-call).
+     * @param executor The executor module address.
+     * @param authorized Whether to grant or revoke execution rights.
+     */
+    function setExecutor(address executor, bool authorized) external {
+        // Only the account itself (via owner / EntryPoint) may rotate executors.
+        _checkOwnerOrEntryPoint();
+        isExecutor[executor] = authorized;
+        emit ExecutorSet(executor, authorized);
+    }
+
+    /**
      * @notice Checks if execution is allowed.
      */
     function _requireForExecute() internal view override {
@@ -399,13 +427,13 @@ contract SmartAccount is BaseAccount, MultiOwnable, IERC165, Receiver, ERC1271 {
     }
 
     /**
-     * @notice Checks if the sender is an owner of this contract or the entrypoint.
-     * @dev Reverts if the sender is not an owner of the contract or the entrypoint.
+     * @notice Checks if the sender is an owner of this contract, the entrypoint,
+     *         or an authorized executor module.
      */
     function _checkOwnerOrEntryPoint() internal view virtual override {
-        if (msg.sender != address(entryPoint())) {
-            _checkOwner();
-        }
+        if (msg.sender == address(entryPoint())) return;
+        if (isExecutor[msg.sender]) return;
+        _checkOwner();
     }
 
     /**
