@@ -8,14 +8,17 @@ account at a deterministic address — the ENS name *is* the wallet. Each name
 can grant permissioned subnames (`bot.leo.ensign.eth`) that act as scoped
 agents.
 
-## Status
+## Layout
 
-Work in progress — Foundry contracts + scripts in this repo, frontend lives
-separately.
+```
+ensign/
+├── contracts/   # Foundry: SmartAccount, ENSignRegistry, ENSignAgentRegistry
+└── web/         # Vite + React webapp, iframe wallet, bookmarklet, bot script
+```
 
 ## Build
 
 ```sh
-forge build
-forge test
+cd contracts && forge build && forge test
+cd ../web     && npm install && npm run dev
 ```

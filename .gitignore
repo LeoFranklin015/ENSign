@@ -1,7 +1,3 @@
-cache/
-out/
-broadcast/
-!broadcast/*.s.sol/*/run-latest.json
 .env
 .env.local
 .DS_Store
