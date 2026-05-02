@@ -16,6 +16,7 @@
     "@walletconnect/core": "^2.23.9",
     "@walletconnect/utils": "^2.23.9",
     "lucide-react": "^1.14.0",
+    "mongodb": "^7.2.0",
     "next": "15.1.6",
     "ox": "^0.8.8",
     "react": "19.0.0",

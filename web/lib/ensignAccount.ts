@@ -21,6 +21,7 @@ import { getUserOperationHash } from "viem/account-abstraction";
 
 const accountAbi = parseAbi([
   "function execute(address,uint256,bytes)",
+  "function executeBatch((address target,uint256 value,bytes data)[] calls)",
 ]);
 
 const factoryAbi = parseAbi([
@@ -213,14 +214,25 @@ export async function toEnsignAccount(
     },
 
     async encodeCalls(calls) {
-      if (calls.length !== 1) {
-        throw new Error("ENSign V1 only supports single-call UserOps");
+      if (calls.length === 0) throw new Error("no calls supplied");
+      if (calls.length === 1) {
+        const c = calls[0];
+        return encodeFunctionData({
+          abi: accountAbi,
+          functionName: "execute",
+          args: [c.to, c.value ?? 0n, c.data ?? "0x"],
+        });
       }
-      const c = calls[0];
       return encodeFunctionData({
         abi: accountAbi,
-        functionName: "execute",
-        args: [c.to, c.value ?? 0n, c.data ?? "0x"],
+        functionName: "executeBatch",
+        args: [
+          calls.map((c) => ({
+            target: c.to,
+            value: c.value ?? 0n,
+            data: c.data ?? ("0x" as Hex),
+          })),
+        ],
       });
     },
 

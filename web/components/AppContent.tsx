@@ -288,9 +288,9 @@ export default function AppContent() {
               <span className="signup-eyebrow">
                 {avail.state === "taken" ? "sign in" : "claim a name"}
               </span>
-              <span className="signup-meta">
-                {avail.state === "taken" ? "existing passkey" : "free · sepolia"}
-              </span>
+              {avail.state === "taken" && (
+                <span className="signup-meta">existing passkey</span>
+              )}
             </header>
 
             {!inFlow ? (
@@ -391,13 +391,22 @@ export default function AppContent() {
         </aside>
       </main>
 
+      <section className="ensv2-stripe" aria-label="Built on ENS V2">
+        <span className="ensv2-stripe-eyebrow">// foundation</span>
+        <h2 className="ensv2-stripe-title">
+          built on top of <em>ENS V2</em>
+        </h2>
+        <p className="ensv2-stripe-sub">
+          subname registry · custom resolver · namespaced agent capabilities.
+        </p>
+      </section>
+
       <footer className="foot">
         <span className="brand-name">
           EN
           <em style={{ color: "var(--acc)", fontStyle: "normal" }}>S</em>
           ign
         </span>
-        <span>sepolia · v2 staging</span>
         <a
           href="https://github.com/LeoFranklin015/ENSign"
           target="_blank"

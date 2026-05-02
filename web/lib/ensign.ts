@@ -357,12 +357,16 @@ const SPONSORSHIP_POLICY_ID = "sp_nice_the_fallen";
 /// One-call send: build → sponsor → sign → submit → wait, all driven by
 /// viem's `bundlerClient.sendUserOperation`. The paymaster wrapper handles
 /// Pimlico's bogus-gas-limit quirk.
+///
+/// Pass either a single `target/value/data` or a `calls` array for batched
+/// execution (uses the smart account's `executeBatch` under the hood).
 export async function sendUserOp(opts: {
   account: `0x${string}`;
   credentialId: string;
-  target: `0x${string}`;
+  target?: `0x${string}`;
   value?: bigint;
   data?: Hex;
+  calls?: Array<{ to: `0x${string}`; value?: bigint; data?: Hex }>;
   chainId?: number;
 }): Promise<{ tx: Hex; success: boolean; blockNumber: string; gasUsed: string }> {
   const { createBundlerClient, createPaymasterClient } = await import(
@@ -396,15 +400,27 @@ export async function sendUserOp(opts: {
     }) as never,
   });
 
+  const calls =
+    opts.calls && opts.calls.length > 0
+      ? opts.calls.map((c) => ({
+          to: c.to,
+          value: c.value ?? 0n,
+          data: c.data ?? ("0x" as Hex),
+        }))
+      : [
+          {
+            to: opts.target as `0x${string}`,
+            value: opts.value ?? 0n,
+            data: opts.data ?? ("0x" as Hex),
+          },
+        ];
+  if (!opts.calls && !opts.target) {
+    throw new Error("sendUserOp: must provide either `target` or `calls`");
+  }
+
   const userOpHash = await bundlerClient.sendUserOperation({
     account: smartAccount,
-    calls: [
-      {
-        to: opts.target,
-        value: opts.value ?? 0n,
-        data: opts.data ?? "0x",
-      },
-    ],
+    calls,
   });
 
   const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
