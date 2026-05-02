@@ -339,7 +339,7 @@ export default function Embed() {
         setVisible(true);
         return;
       }
-      // Stage as a pending sign request; user confirms with Face ID. The smart
+      // Stage as a pending sign request; user confirms with passkey. The smart
       // account adapter handles the ERC-7739 nested EIP-712 wrapping under the
       // hood so the resulting signature passes the JAW's `isValidSignature`
       // (ERC-1271).
@@ -540,7 +540,7 @@ export default function Embed() {
     setVisible(false);
   }
 
-  /// Sign with Face ID via ERC-7739. Returns a signature that the JAW's
+  /// Sign with passkey via ERC-7739. Returns a signature that the JAW's
   /// `isValidSignature` (ERC-1271) accepts.
   async function handleApproveSign() {
     if (!pendingSign || !account) return;
@@ -785,7 +785,7 @@ export default function Embed() {
                 ? "Sign message"
                 : "Sign typed data"}
             </p>
-            <h2 className="jc-h2">Confirm with Face ID</h2>
+            <h2 className="jc-h2">Confirm with passkey</h2>
             <p className="jc-p">
               Signing as <strong>{account.fullName}</strong>. Review the message
               before approving — your signature can grant access or move funds.

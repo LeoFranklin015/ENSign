@@ -49,12 +49,7 @@ export function Nav() {
           ))}
         </nav>
       ) : (
-        <div className="bar-right">
-          <span className="tag">
-            <span className="tag-pulse" aria-hidden="true" />
-            <span>sepolia · v2 staging</span>
-          </span>
-        </div>
+        <span aria-hidden="true" />
       )}
 
       <div className="bar-right">

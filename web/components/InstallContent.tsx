@@ -65,7 +65,7 @@ export default function InstallContent() {
             </li>
             <li>
               <span className="step-num">04</span>
-              <span>type <em>{label}</em> · sign with face id · done</span>
+              <span>type <em>{label}</em> · sign with passkey · done</span>
             </li>
           </ol>
         </div>

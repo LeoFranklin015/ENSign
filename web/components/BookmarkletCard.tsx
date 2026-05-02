@@ -64,7 +64,7 @@ export function BookmarkletCard() {
       <h2>Use on any dApp (bookmarklet)</h2>
       <p className="muted">
         For dApps that don't speak WalletConnect: drag the link below to your bookmarks bar, then
-        click it on any dApp tab. ENSign appears in the dApp's wallet picker, and Face ID
+        click it on any dApp tab. ENSign appears in the dApp's wallet picker, and passkey
         prompts run in a corner iframe served from this same origin.
       </p>
       <p className="muted small">
@@ -118,7 +118,7 @@ export function BookmarkletCard() {
           </li>
           <li>Connector announces an EIP-1193 provider via EIP-6963.</li>
           <li>dApp's wallet picker lists ENSign.</li>
-          <li>Approve as a name → Face ID for each tx, no tab switching.</li>
+          <li>Approve as a name → passkey for each tx, no tab switching.</li>
         </ol>
       </details>
     </section>

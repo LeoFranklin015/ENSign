@@ -467,9 +467,12 @@
 }
 
 .action:disabled {
-  opacity: 0.32;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  box-shadow: 0 0 0 1px var(--line-strong), none;
   cursor: not-allowed;
 }
+.action:disabled .action-arrow { color: var(--text-faint); }
 
 .action-arrow {
   font-family: var(--font-mono);

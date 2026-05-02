@@ -219,7 +219,7 @@ export function WalletConnectCard() {
       <p className="muted">
         Open a dApp (Uniswap, OpenSea, anything that supports WalletConnect), copy the WC URI from
         its "Connect Wallet" QR, and paste it below. Sessions are bound to a ENSign name —
-        every signing request triggers Face ID for that name.
+        every signing request triggers passkey for that name.
       </p>
 
       <label className="field">
@@ -279,7 +279,7 @@ export function WalletConnectCard() {
             <pre className="payload">{JSON.stringify(p.params, null, 2)}</pre>
             <div className="actions">
               <button onClick={() => handleSign(p)} disabled={step === "signing"}>
-                {step === "signing" ? "Awaiting Face ID…" : "Sign with passkey"}
+                {step === "signing" ? "Awaiting passkey…" : "Sign with passkey"}
               </button>
               <button className="ghost" onClick={() => handleRejectRequest(p)}>
                 Reject

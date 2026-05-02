@@ -16,7 +16,7 @@ const SIGNUP_STEPS: Step[] = [
   {
     id: "passkey",
     label: "create passkey",
-    description: "browser opens the credential ceremony — touch face id",
+    description: "browser asks for your passkey · biometric or hardware key",
   },
   {
     id: "register",
@@ -101,7 +101,7 @@ export default function AppContent() {
           </h1>
           <p className="hero-sub">
             ENSign turns ENS subnames into self-custodial smart accounts.
-            Type a name. Touch your face. <strong>The subname is the wallet</strong> —
+            Pick a name. Approve with a passkey. <strong>The subname is the wallet</strong> —
             no seed phrase, no extension, no chain to switch.
           </p>
 
@@ -110,7 +110,7 @@ export default function AppContent() {
               <span className="bullet-mark">01</span>
               <div>
                 <b>passkey-controlled</b>
-                <span>face id is the only key. credential lives in your authenticator.</span>
+                <span>your passkey is the only key. credential never leaves your device.</span>
               </div>
             </li>
             <li>
@@ -174,7 +174,7 @@ export default function AppContent() {
                   onClick={onSign}
                   disabled={!label}
                 >
-                  <span>sign with face id</span>
+                  <span>sign with passkey</span>
                   <span className="action-arrow">→</span>
                 </button>
 

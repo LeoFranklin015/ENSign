@@ -25,7 +25,7 @@ const SEND_STEPS: Step[] = [
   {
     id: "sign",
     label: "passkey signature",
-    description: "browser asks the right passkey by name · face id ceremony",
+    description: "browser asks the right passkey by name · approve to sign",
   },
   {
     id: "relay",
