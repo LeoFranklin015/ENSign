@@ -334,9 +334,33 @@ function base64UrlToBytes(s: string): Uint8Array {
   return out;
 }
 
+/// Prove ownership of a passkey by exercising it against a random challenge.
+/// Used at "sign in" time to verify the user actually has the credential
+/// before saving a session for that name. Throws if the user cancels or the
+/// authenticator can't find the credential.
+export async function verifyPasskey(credentialId: string): Promise<boolean> {
+  const challenge = crypto.getRandomValues(new Uint8Array(32));
+  const cred = (await navigator.credentials.get({
+    publicKey: {
+      challenge,
+      rpId: window.location.hostname,
+      userVerification: "required",
+      timeout: 60_000,
+      allowCredentials: [
+        {
+          id: base64UrlToBytes(credentialId),
+          type: "public-key" as const,
+          transports: ["internal", "hybrid"] as AuthenticatorTransport[],
+        },
+      ],
+    },
+  })) as PublicKeyCredential | null;
+  return !!cred;
+}
+
 /// Sign with the passkey bound to the given name. If `credentialId` is provided,
 /// the browser is told to use exactly that passkey — no chooser, straight to
-/// Face ID. If empty, falls back to discoverable mode (browser shows chooser).
+/// the authenticator. If empty, falls back to discoverable mode (browser shows chooser).
 export async function signUserOpHashForName(
   hash: Hex,
   credentialId: string,

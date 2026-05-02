@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import "../app/app.css";
 import {
   PARENT_NAME,
   createPasskeyForLabel,
   registerName,
+  resolveLabel,
+  verifyPasskey,
 } from "@/lib/ensign";
 import { getSession, saveSession } from "@/lib/session";
 import { Nav } from "@/components/Nav";
@@ -30,44 +32,101 @@ const SIGNUP_STEPS: Step[] = [
   },
 ];
 
-type SignupState =
-  | { phase: "idle" }
-  | { phase: "active"; stepId: string }
-  | { phase: "error"; stepId: string; message: string }
-  | { phase: "done" };
+const SIGNIN_STEPS: Step[] = [
+  {
+    id: "verify",
+    label: "verify passkey",
+    description: "prove you hold the credential bound to this name",
+  },
+  {
+    id: "session",
+    label: "open dashboard",
+    description: "load on-chain account state · route in",
+  },
+];
+
+type Availability =
+  | { state: "idle" }
+  | { state: "checking"; label: string }
+  | { state: "free"; label: string }
+  | {
+      state: "taken";
+      label: string;
+      account: `0x${string}`;
+      credentialId: string;
+    }
+  | { state: "invalid"; reason: string };
+
+type Phase =
+  | { kind: "idle" }
+  | { kind: "active"; mode: "signup" | "signin"; stepId: string }
+  | {
+      kind: "error";
+      mode: "signup" | "signin";
+      stepId: string;
+      message: string;
+    }
+  | { kind: "done"; mode: "signup" | "signin" };
+
+const LABEL_RE = /^[a-z0-9-]{1,32}$/;
 
 export default function AppContent() {
   const router = useRouter();
   const [label, setLabel] = useState("");
-  const [signup, setSignup] = useState<SignupState>({ phase: "idle" });
+  const [avail, setAvail] = useState<Availability>({ state: "idle" });
+  const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [hasSession, setHasSession] = useState(false);
+  const checkRef = useRef<number>(0);
 
-  // If already logged in, gently surface a "go to dashboard" hint.
   useEffect(() => {
     setHasSession(!!getSession());
   }, []);
 
-  const isBusy = signup.phase === "active" || signup.phase === "done";
-
-  async function onSign() {
-    if (!label.match(/^[a-z0-9-]{1,32}$/)) {
-      setSignup({
-        phase: "error",
-        stepId: "passkey",
-        message: "label must be 1–32 chars: lowercase letters, digits, hyphens.",
+  // Debounced availability check.
+  useEffect(() => {
+    if (!label) {
+      setAvail({ state: "idle" });
+      return;
+    }
+    if (!LABEL_RE.test(label)) {
+      setAvail({
+        state: "invalid",
+        reason: "1–32 chars · lowercase letters, digits, hyphens",
       });
       return;
     }
+
+    const myCheck = ++checkRef.current;
+    setAvail({ state: "checking", label });
+    const timer = window.setTimeout(async () => {
+      if (myCheck !== checkRef.current) return;
+      try {
+        const r = await resolveLabel(label);
+        if (myCheck !== checkRef.current) return;
+        setAvail({
+          state: "taken",
+          label,
+          account: r.account,
+          credentialId: r.credentialId,
+        });
+      } catch {
+        if (myCheck !== checkRef.current) return;
+        setAvail({ state: "free", label });
+      }
+    }, 380);
+    return () => window.clearTimeout(timer);
+  }, [label]);
+
+  async function onSignUp() {
+    if (avail.state !== "free") return;
     try {
-      setSignup({ phase: "active", stepId: "passkey" });
+      setPhase({ kind: "active", mode: "signup", stepId: "passkey" });
       const { qx, qy, credentialId } = await createPasskeyForLabel(label);
 
-      setSignup({ phase: "active", stepId: "register" });
+      setPhase({ kind: "active", mode: "signup", stepId: "register" });
       const out = await registerName(label, qx, qy, credentialId);
 
-      setSignup({ phase: "active", stepId: "settle" });
-      // Tiny artificial settle so the user sees the transition (the receipt
-      // wait already happened on the server).
+      setPhase({ kind: "active", mode: "signup", stepId: "settle" });
       await new Promise((r) => setTimeout(r, 700));
 
       saveSession({
@@ -76,23 +135,78 @@ export default function AppContent() {
         account: out.account,
         credentialId,
       });
-      setSignup({ phase: "done" });
-      // Hand off.
+      setPhase({ kind: "done", mode: "signup" });
       setTimeout(() => router.push("/dashboard"), 600);
     } catch (e) {
-      const msg = (e as Error).message;
-      const stepId =
-        signup.phase === "active" ? signup.stepId : "passkey";
-      setSignup({ phase: "error", stepId, message: msg });
+      const stepId = phase.kind === "active" ? phase.stepId : "passkey";
+      setPhase({
+        kind: "error",
+        mode: "signup",
+        stepId,
+        message: (e as Error).message,
+      });
     }
   }
+
+  async function onSignIn() {
+    if (avail.state !== "taken") return;
+    try {
+      setPhase({ kind: "active", mode: "signin", stepId: "verify" });
+      const ok = await verifyPasskey(avail.credentialId);
+      if (!ok) throw new Error("authenticator did not return a credential");
+
+      setPhase({ kind: "active", mode: "signin", stepId: "session" });
+      saveSession({
+        label: avail.label,
+        fullName: `${avail.label}.${PARENT_NAME}`,
+        account: avail.account,
+        credentialId: avail.credentialId,
+      });
+      await new Promise((r) => setTimeout(r, 350));
+
+      setPhase({ kind: "done", mode: "signin" });
+      setTimeout(() => router.push("/dashboard"), 400);
+    } catch (e) {
+      setPhase({
+        kind: "error",
+        mode: "signin",
+        stepId: phase.kind === "active" ? phase.stepId : "verify",
+        message: (e as Error).message,
+      });
+    }
+  }
+
+  const inFlow = phase.kind === "active" || phase.kind === "done";
+  const isError = phase.kind === "error";
+
+  // Choose which CTA we're showing.
+  const cta =
+    avail.state === "taken"
+      ? {
+          mode: "signin" as const,
+          label: "sign in with passkey",
+          handler: onSignIn,
+          enabled: true,
+        }
+      : avail.state === "free"
+        ? {
+            mode: "signup" as const,
+            label: "sign up with passkey",
+            handler: onSignUp,
+            enabled: true,
+          }
+        : {
+            mode: "signup" as const,
+            label: "sign up with passkey",
+            handler: onSignUp,
+            enabled: false,
+          };
 
   return (
     <div className="app-shell landing">
       <Nav />
 
       <main className="landing-grid">
-        {/* ────────── LEFT: pitch ────────── */}
         <section className="pitch">
           <p className="kicker">sign in with name</p>
           <h1 className="hero-title">
@@ -110,7 +224,9 @@ export default function AppContent() {
               <span className="bullet-mark">01</span>
               <div>
                 <b>passkey-controlled</b>
-                <span>your passkey is the only key. credential never leaves your device.</span>
+                <span>
+                  your passkey is the only key. credential never leaves your device.
+                </span>
               </div>
             </li>
             <li>
@@ -124,80 +240,116 @@ export default function AppContent() {
               <span className="bullet-mark">03</span>
               <div>
                 <b>agents are subnames</b>
-                <span>spawn `bot.you.ensign.eth` — capability hash baked into ENS records.</span>
+                <span>
+                  spawn `bot.you.ensign.eth` — capability hash baked into ENS records.
+                </span>
               </div>
             </li>
           </ul>
 
-          {hasSession && signup.phase === "idle" && (
+          {hasSession && phase.kind === "idle" && (
             <p className="resume">
               ⟶ already signed in.{" "}
-              <button className="bar-link" onClick={() => router.push("/dashboard")}>
+              <button
+                className="bar-link"
+                onClick={() => router.push("/dashboard")}
+              >
                 continue to dashboard
               </button>
             </p>
           )}
         </section>
 
-        {/* ────────── RIGHT: signup card ────────── */}
         <aside className="signup">
           <div className="signup-card">
             <header className="signup-head">
-              <span className="signup-eyebrow">claim a name</span>
-              <span className="signup-meta">free · sepolia</span>
+              <span className="signup-eyebrow">
+                {avail.state === "taken" ? "sign in" : "claim a name"}
+              </span>
+              <span className="signup-meta">
+                {avail.state === "taken" ? "existing passkey" : "free · sepolia"}
+              </span>
             </header>
 
-            {signup.phase === "idle" || signup.phase === "error" ? (
+            {!inFlow ? (
               <>
                 <p className="signup-prompt">
-                  pick a label · we mint <em>{`<label>.${PARENT_NAME}`}</em> bound to
-                  a fresh passkey.
+                  {avail.state === "taken" ? (
+                    <>
+                      <em>
+                        {label}.{PARENT_NAME}
+                      </em>{" "}
+                      is already minted · sign in with the passkey you bound to it.
+                    </>
+                  ) : (
+                    <>
+                      pick a label · we mint{" "}
+                      <em>{`<label>.${PARENT_NAME}`}</em> bound to a fresh passkey.
+                    </>
+                  )}
                 </p>
 
                 <div className="amount-input compact">
                   <input
                     placeholder="alice"
                     value={label}
-                    onChange={(e) => setLabel(e.target.value.toLowerCase().trim())}
+                    onChange={(e) =>
+                      setLabel(e.target.value.toLowerCase().trim())
+                    }
                     autoFocus
                     spellCheck={false}
                     autoComplete="off"
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && label) onSign();
+                      if (e.key === "Enter" && cta.enabled) cta.handler();
                     }}
                   />
                   <span className="suffix">.{PARENT_NAME}</span>
                 </div>
 
+                <AvailabilityRow avail={avail} />
+
                 <button
                   className="action"
-                  onClick={onSign}
-                  disabled={!label}
+                  onClick={cta.handler}
+                  disabled={!cta.enabled}
                 >
-                  <span>sign with passkey</span>
+                  <span>{cta.label}</span>
                   <span className="action-arrow">→</span>
                 </button>
 
-                {signup.phase === "error" && (
-                  <div className="err">{signup.message}</div>
+                {isError && (
+                  <div className="err">
+                    {phase.message}
+                  </div>
                 )}
               </>
             ) : (
               <>
                 <p className="signup-prompt">
-                  signing <em>{label}.{PARENT_NAME}</em> · please don't close the tab
+                  {phase.kind === "active" || phase.kind === "done"
+                    ? phase.mode === "signin"
+                      ? <>verifying <em>{label}.{PARENT_NAME}</em> · don't close the tab</>
+                      : <>signing <em>{label}.{PARENT_NAME}</em> · don't close the tab</>
+                    : null}
                 </p>
                 <MultiStepLoader
-                  steps={SIGNUP_STEPS}
-                  currentId={
-                    signup.phase === "active" ? signup.stepId : null
+                  steps={
+                    phase.kind === "active" || phase.kind === "done"
+                      ? phase.mode === "signin"
+                        ? SIGNIN_STEPS
+                        : SIGNUP_STEPS
+                      : SIGNUP_STEPS
                   }
-                  done={signup.phase === "done"}
+                  currentId={
+                    phase.kind === "active" ? phase.stepId : null
+                  }
+                  done={phase.kind === "done"}
                   error={null}
                 />
-                {signup.phase === "done" && (
+                {phase.kind === "done" && (
                   <p className="signup-done">
-                    ✓ sealed · routing to dashboard…
+                    ✓ {phase.mode === "signin" ? "signed in" : "sealed"} ·
+                    routing to dashboard…
                   </p>
                 )}
               </>
@@ -212,7 +364,9 @@ export default function AppContent() {
 
       <footer className="foot">
         <span className="brand-name">
-          EN<em style={{ color: "var(--acc)", fontStyle: "normal" }}>S</em>ign
+          EN
+          <em style={{ color: "var(--acc)", fontStyle: "normal" }}>S</em>
+          ign
         </span>
         <span>sepolia · v2 staging</span>
         <a
@@ -223,6 +377,61 @@ export default function AppContent() {
           github
         </a>
       </footer>
+    </div>
+  );
+}
+
+function AvailabilityRow({ avail }: { avail: Availability }) {
+  if (avail.state === "idle") {
+    return (
+      <div className="avail avail--idle">
+        <span className="avail-dot" />
+        <span>type a label to check availability</span>
+      </div>
+    );
+  }
+  if (avail.state === "invalid") {
+    return (
+      <div className="avail avail--invalid">
+        <span className="avail-dot" />
+        <span>{avail.reason}</span>
+      </div>
+    );
+  }
+  if (avail.state === "checking") {
+    return (
+      <div className="avail avail--checking">
+        <span className="avail-spin" />
+        <span>checking on-chain…</span>
+      </div>
+    );
+  }
+  if (avail.state === "free") {
+    return (
+      <div className="avail avail--free">
+        <span className="avail-dot" />
+        <span>
+          available — <strong>sign up</strong> to mint
+        </span>
+      </div>
+    );
+  }
+  // taken
+  return (
+    <div className="avail avail--taken">
+      <span className="avail-dot" />
+      <span>
+        already minted to{" "}
+        <a
+          href={`https://sepolia.etherscan.io/address/${avail.account}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {avail.account.slice(0, 6)}…{avail.account.slice(-4)}
+        </a>
+        {" — "}
+        <strong>sign in</strong> instead
+      </span>
     </div>
   );
 }
