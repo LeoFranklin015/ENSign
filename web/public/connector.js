@@ -93,6 +93,21 @@
   const listeners = { accountsChanged: [], chainChanged: [], connect: [], disconnect: [] };
   let hasConnected = false;
 
+  // Iframe readiness gate — RPCs queued before the embed mounts its listener
+  // would otherwise be dropped (first-click race). We buffer until the iframe
+  // posts back `{kind:"ready"}` and then flush.
+  let iframeReady = false;
+  const readyWaiters = [];
+  function waitReady() {
+    if (iframeReady) return Promise.resolve();
+    return new Promise((resolve) => readyWaiters.push(resolve));
+  }
+  function markReady() {
+    if (iframeReady) return;
+    iframeReady = true;
+    while (readyWaiters.length) readyWaiters.shift()();
+  }
+
   function emit(event, payload) {
     (listeners[event] || []).forEach((fn) => {
       try { fn(payload); } catch (e) { console.warn("[ENSign] listener error", e); }
@@ -124,7 +139,7 @@
       }
       emit(msg.event, msg.payload);
     } else if (msg.kind === "ready") {
-      // iframe is ready; nothing to do
+      markReady();
     }
   });
 
@@ -132,10 +147,12 @@
     return new Promise((resolve, reject) => {
       const id = nextId++;
       pending.set(id, { resolve, reject });
-      iframe.contentWindow.postMessage(
-        { kind: "rpc", id, method, params: params || [] },
-        ORIGIN,
-      );
+      waitReady().then(() => {
+        iframe.contentWindow.postMessage(
+          { kind: "rpc", id, method, params: params || [] },
+          ORIGIN,
+        );
+      });
     });
   }
 
