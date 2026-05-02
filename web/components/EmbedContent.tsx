@@ -25,7 +25,32 @@ import {
 import { toENSignAccount } from "@/lib/toENSignAccount";
 import { decodeTx, formatTokenAmount, type DecodeResult } from "@/lib/decodeTx";
 import { http, formatEther, type Hex } from "viem";
-import { createBundlerClient } from "viem/account-abstraction";
+import { createBundlerClient, createPaymasterClient } from "viem/account-abstraction";
+import { createPaymasterFunctions } from "@/lib/paymasterFns";
+
+/// Pimlico sponsorship policy. Same one we use for the dashboard's send flow.
+const SPONSORSHIP_POLICY_ID = "sp_nice_the_fallen";
+
+/// Build a Pimlico-backed bundler client with the paymaster wrapper plugged in.
+/// Centralised so both the gas-estimate path and the send path share the same
+/// configuration — including the bogus-gas-limit fallback for EP v0.8.
+function bundlerWithPaymaster(
+  client: ReturnType<typeof clientForChain>,
+  smartAccount: Parameters<typeof createBundlerClient>[0]["account"],
+  chainId: number,
+) {
+  const paymasterClient = createPaymasterClient({
+    transport: http(bundlerUrl(chainId)),
+  });
+  return createBundlerClient({
+    client: client as never,
+    transport: http(bundlerUrl(chainId)),
+    account: smartAccount,
+    paymaster: createPaymasterFunctions(client as never, paymasterClient, chainId, {
+      sponsorshipPolicyId: SPONSORSHIP_POLICY_ID,
+    }) as never,
+  });
+}
 import {
   ArrowRight,
   Send,
@@ -229,11 +254,7 @@ export default function Embed() {
           label: accountRef.current.label,
           chainId,
         });
-        const bundler = createBundlerClient({
-          client,
-          transport: http(bundlerUrl(chainId)),
-          account: smartAccount,
-        });
+        const bundler = bundlerWithPaymaster(client, smartAccount, chainId);
         const gas = await bundler.estimateUserOperationGas({
           calls: [
             {
@@ -501,13 +522,8 @@ export default function Embed() {
         chainId,
       });
 
-      // Pimlico's bundler does proper per-chain gas estimation
-      // (eth_estimateUserOperationGas), which fixes "intrinsic gas too high".
-      const bundler = createBundlerClient({
-        client,
-        transport: http(bundlerUrl(chainId)),
-        account: smartAccount,
-      });
+      // Pimlico bundler + paymaster — gas is sponsored, the user pays nothing.
+      const bundler = bundlerWithPaymaster(client, smartAccount, chainId);
 
       const opHash = await bundler.sendUserOperation({
         calls: [{ to, value, data }],
@@ -766,6 +782,10 @@ export default function Embed() {
                   <ChainIcon chainId={activeChainId} />
                   <span>{chainName}</span>
                 </dd>
+              </div>
+              <div className="jc-receipt-row">
+                <dt>Gas</dt>
+                <dd className="jc-gas-sponsored">sponsored</dd>
               </div>
             </dl>
 
@@ -1050,31 +1070,18 @@ function shortAddr(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-/// Inline SVG glyphs for Sepolia (Ethereum diamond) and Base (B mark).
+/// Chain glyphs from /public. Base for chain 84532, Sepolia otherwise.
 function ChainIcon({ chainId, size = 14 }: { chainId: number; size?: number }) {
-  if (chainId === 84532) {
-    // Base — solid blue circle with stylized B mark.
-    return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ display: "block", flexShrink: 0 }}>
-        <circle cx="12" cy="12" r="11" fill="#0052ff" />
-        <path
-          d="M11.5 5.5C7.91 5.5 5 8.41 5 12s2.91 6.5 6.5 6.5h7v-2.6h-7a3.9 3.9 0 0 1 0-7.8h7V5.5h-7Z"
-          fill="#ffffff"
-        />
-      </svg>
-    );
-  }
-  // Sepolia / default Ethereum mark.
+  const src = chainId === 84532 ? "/base.png" : "/sepolia.png";
+  const alt = chainId === 84532 ? "Base" : "Sepolia";
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ display: "block", flexShrink: 0 }}>
-      <circle cx="12" cy="12" r="11" fill="#627eea" />
-      <path d="M12 3.5 6.5 12.4l5.5 3.2V3.5Z" fill="#ffffff" fillOpacity="0.6" />
-      <path d="M12 3.5v12.1l5.5-3.2L12 3.5Z" fill="#ffffff" />
-      <path d="m12 16.7-5.5-3.2L12 21.5l5.5-8-5.5 3.2Z" fill="#ffffff" fillOpacity="0.6" />
-      <path d="M12 21.5v-4.8L6.5 13.5 12 21.5Z" fill="#ffffff" fillOpacity="0.45" />
-      <path d="m6.5 12.4 5.5 3.2v-5.4L6.5 12.4Z" fill="#ffffff" fillOpacity="0.85" />
-      <path d="M12 10.2v5.4l5.5-3.2L12 10.2Z" fill="#ffffff" fillOpacity="0.7" />
-    </svg>
+    <img
+      src={src}
+      alt={alt}
+      width={size}
+      height={size}
+      style={{ display: "block", flexShrink: 0, borderRadius: "50%" }}
+    />
   );
 }
 
