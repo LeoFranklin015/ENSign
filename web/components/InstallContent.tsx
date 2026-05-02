@@ -40,32 +40,23 @@ export default function InstallContent() {
           <h1 className="hero-title-sm">
             wallet on <em>any</em> dApp.
           </h1>
-          <p className="hero-sub">
-            Drag the bookmarklet to your bookmarks bar. Click it on any dApp page —
-            ENSign appears as <strong>window.ethereum</strong> via EIP-1193 + EIP-6963.
-            No extension to install. Nothing for the dApp to integrate.
-          </p>
         </section>
 
         <div className="form-card">
           <BookmarkletCard />
 
-          <ol className="steps">
+          <ol className="steps install-steps">
             <li>
               <span className="step-num">01</span>
-              <span>drag the lime button into your bookmarks bar</span>
+              <span>drag the lime button to your bookmarks bar</span>
             </li>
             <li>
               <span className="step-num">02</span>
-              <span>visit any dApp on sepolia (try aave, uniswap)</span>
+              <span>open any sepolia dApp · click the bookmark</span>
             </li>
             <li>
               <span className="step-num">03</span>
-              <span>click the bookmark — the ENSign iframe opens</span>
-            </li>
-            <li>
-              <span className="step-num">04</span>
-              <span>type <em>{label}</em> · sign with passkey · done</span>
+              <span>sign as <em>{label}</em> with your passkey</span>
             </li>
           </ol>
         </div>

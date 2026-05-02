@@ -55,13 +55,19 @@ export function Nav() {
       <div className="bar-right">
         {label ? (
           <>
-            <span className="bar-name">
+            <a
+              className="bar-name"
+              href={`https://explorer.ens.dev/${label}.${PARENT_NAME}`}
+              target="_blank"
+              rel="noreferrer"
+              title={`Open ${label}.${PARENT_NAME} in ENS explorer`}
+            >
               <span className="bar-name-dot" aria-hidden="true" />
               <span>
                 {label}
                 <span className="bar-name-suffix">.{PARENT_NAME}</span>
               </span>
-            </span>
+            </a>
             <button className="bar-link" onClick={logout}>
               logout
             </button>

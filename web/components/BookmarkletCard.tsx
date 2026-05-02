@@ -60,67 +60,36 @@ export function BookmarkletCard() {
   const ready = !!connectorCode;
 
   return (
-    <section className="card">
-      <h2>Use on any dApp (bookmarklet)</h2>
-      <p className="muted">
-        For dApps that don't speak WalletConnect: drag the link below to your bookmarks bar, then
-        click it on any dApp tab. ENSign appears in the dApp's wallet picker, and passkey
-        prompts run in a corner iframe served from this same origin.
-      </p>
-      <p className="muted small">
-        The connector is inlined into the bookmarklet so it works on dApps with strict CSP (Aave,
-        ENS app, etc.).
-      </p>
-
-      <div className="bookmarklet-box">
-        <a
-          ref={linkRef}
-          className="bookmarklet"
-          draggable={ready}
-          aria-disabled={!ready}
-          style={ready ? undefined : { opacity: 0.5, cursor: "wait" }}
-        >
-          🔖 {ready ? "Use ENSign" : "Loading…"}
-        </a>
-        <span className="muted small">← drag this to your bookmarks bar</span>
-        <button className="ghost" onClick={copyCode} disabled={!ready}>
-          {copied ? "Copied!" : "Copy code"}
-        </button>
-      </div>
+    <div className="bookmarklet-hero">
+      <a
+        ref={linkRef}
+        className="bookmarklet bookmarklet-big"
+        draggable={ready}
+        aria-disabled={!ready}
+        style={ready ? undefined : { opacity: 0.5, cursor: "wait" }}
+      >
+        {ready ? "ENSign" : "loading…"}
+      </a>
+      <span className="muted small bookmarklet-hint">
+        {ready ? "drag this to your bookmarks bar ↗" : ""}
+      </span>
+      <button className="ghost bookmarklet-copy" onClick={copyCode} disabled={!ready}>
+        {copied ? "copied" : "copy code"}
+      </button>
 
       {fetchError && (
         <div className="err small">
-          Couldn't load <code>/connector.js</code>: {fetchError}. Make sure the dev server is
-          running.
+          Couldn't load <code>/connector.js</code>: {fetchError}.
         </div>
       )}
 
-      <details className="muted small">
-        <summary>If your browser hides the bookmarks bar</summary>
-        <ol>
-          <li>
-            Show it: Chrome <code>⌘+Shift+B</code>, Safari View → Show Favorites Bar, Firefox{" "}
-            <code>⌘+Shift+B</code>.
-          </li>
-          <li>Drag the green "Use ENSign" button onto the bar.</li>
-          <li>Or: click "Copy code", create a new bookmark anywhere, paste as the URL.</li>
-        </ol>
+      <details className="muted small bookmarklet-details">
+        <summary>can't see your bookmarks bar?</summary>
+        <p>
+          Chrome / Firefox: <code>⌘+Shift+B</code>. Safari: View → Show Favorites Bar. Or "copy
+          code" and paste it as the URL of a new bookmark.
+        </p>
       </details>
-
-      <details className="muted small">
-        <summary>How it works</summary>
-        <ol>
-          <li>Click bookmarklet on a dApp tab.</li>
-          <li>Inlined connector runs in the dApp page (CSP-safe — no external script load).</li>
-          <li>
-            Connector mounts an iframe (<code>{origin}/embed</code>) — frame load not gated by{" "}
-            <code>script-src</code>.
-          </li>
-          <li>Connector announces an EIP-1193 provider via EIP-6963.</li>
-          <li>dApp's wallet picker lists ENSign.</li>
-          <li>Approve as a name → passkey for each tx, no tab switching.</li>
-        </ol>
-      </details>
-    </section>
+    </div>
   );
 }

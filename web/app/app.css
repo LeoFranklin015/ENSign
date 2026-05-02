@@ -653,6 +653,54 @@
 }
 .bookmarklet:active { cursor: grabbing; transform: translateY(1px); }
 
+.bookmarklet-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 0 8px;
+}
+
+.bookmarklet-big {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  padding: 22px 48px;
+  border-radius: var(--r-lg, 16px);
+  text-transform: lowercase;
+  box-shadow:
+    0 0 0 1px rgba(184, 255, 58, 0.4),
+    0 24px 60px -12px var(--acc-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.bookmarklet-big:hover {
+  transform: translateY(-2px) rotate(-0.3deg);
+  box-shadow:
+    0 0 0 1px rgba(184, 255, 58, 0.6),
+    0 32px 70px -10px var(--acc-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.bookmarklet-hint {
+  letter-spacing: 0.02em;
+}
+
+.bookmarklet-copy {
+  font-size: 12px;
+  padding: 6px 14px;
+}
+
+.bookmarklet-details {
+  margin-top: 6px;
+  text-align: center;
+}
+
+.install-steps {
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+
 /* ─── Footer ─── */
 
 .foot {
