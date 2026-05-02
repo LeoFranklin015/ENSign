@@ -8,8 +8,9 @@ export default defineConfig({
     host: true,
     allowedHosts: ["localhost", ".ngrok-free.app", ".ngrok.io"],
     proxy: {
+      // Forwards /api/* to the Next.js relay (../relay).
       "/api": {
-        target: "http://localhost:8787",
+        target: "http://localhost:3000",
         changeOrigin: true,
       },
     },
