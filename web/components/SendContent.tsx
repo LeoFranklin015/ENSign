@@ -5,12 +5,9 @@ import { useRouter } from "next/navigation";
 import "../app/app.css";
 import {
   PARENT_NAME,
-  buildExecuteUserOp,
-  getUserOpHash,
   publicClient,
-  relayUserOp,
   resolveLabel,
-  signUserOpHashForName,
+  sendUserOp,
 } from "@/lib/ensign";
 import { getSession } from "@/lib/session";
 import { Nav } from "@/components/Nav";
@@ -23,14 +20,9 @@ const SEND_STEPS: Step[] = [
     description: "registry → resolver → addr(node) · pulls latest credential",
   },
   {
-    id: "sign",
-    label: "passkey signature",
-    description: "browser asks the right passkey by name · approve to sign",
-  },
-  {
-    id: "relay",
-    label: "broadcast",
-    description: "EntryPoint.handleOps · relayer pays, you sign",
+    id: "send",
+    label: "sponsor + sign + send",
+    description: "pimlico paymaster sponsors gas · passkey signs · bundler broadcasts",
   },
 ];
 
@@ -109,18 +101,13 @@ export default function SendContent() {
       setSend({ phase: "active", stepId: "resolve" });
       const fresh = await resolveLabel(label);
 
-      setSend({ phase: "active", stepId: "sign" });
-      const userOp = await buildExecuteUserOp({
+      setSend({ phase: "active", stepId: "send" });
+      const r = await sendUserOp({
         account: fresh.account,
+        credentialId: fresh.credentialId,
         target: target as `0x${string}`,
         value,
       });
-      const hash = await getUserOpHash(userOp);
-      const sig = await signUserOpHashForName(hash, fresh.credentialId);
-      userOp.signature = sig;
-
-      setSend({ phase: "active", stepId: "relay" });
-      const r = await relayUserOp(userOp);
       setSend({ phase: "done", result: r });
     } catch (e) {
       const stepId = send.phase === "active" ? send.stepId : "resolve";
@@ -143,8 +130,8 @@ export default function SendContent() {
             sign by <em>name</em>.
           </h1>
           <p className="hero-sub">
-            We resolve the name on-chain, build the UserOp, your passkey signs, and our relayer
-            broadcasts. <strong>No login. No session.</strong>
+            We resolve the name on-chain, build the UserOp, your passkey signs, and a public
+            bundler broadcasts. <strong>No login. No session.</strong>
           </p>
         </section>
 

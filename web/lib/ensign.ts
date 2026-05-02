@@ -224,85 +224,6 @@ export async function resolveLabel(label: string): Promise<ResolvedName> {
 }
 
 // ---------------------------------------------------------------------------
-// UserOp building
-// ---------------------------------------------------------------------------
-
-export type BuiltUserOp = {
-  sender: `0x${string}`;
-  nonce: bigint;
-  initCode: Hex;
-  callData: Hex;
-  accountGasLimits: Hex;
-  preVerificationGas: bigint;
-  gasFees: Hex;
-  paymasterAndData: Hex;
-  signature: Hex;
-};
-
-export async function buildExecuteUserOp(opts: {
-  account: `0x${string}`;
-  target: `0x${string}`;
-  value: bigint;
-  data?: Hex;
-  chainId?: number;
-  initCode?: Hex;
-}): Promise<BuiltUserOp> {
-  const callData = encodeFunctionData({
-    abi: jawAbi,
-    functionName: "execute",
-    args: [opts.target, opts.value, opts.data ?? "0x"],
-  });
-
-  const client = clientForChain(opts.chainId ?? CHAIN_ID);
-  const nonce = await client.readContract({
-    address: ENTRYPOINT,
-    abi: entryPointAbi,
-    functionName: "getNonce",
-    args: [opts.account, 0n],
-  });
-
-  const verificationGasLimit = 1_000_000n;
-  const callGasLimit = 200_000n;
-  const preVerificationGas = 200_000n;
-  const maxPriorityFeePerGas = 1_000_000_000n;
-  const maxFeePerGas = 3_000_000_000n;
-
-  return {
-    sender: opts.account,
-    nonce,
-    initCode: opts.initCode ?? "0x",
-    callData,
-    accountGasLimits: pack(verificationGasLimit, callGasLimit),
-    preVerificationGas,
-    gasFees: pack(maxPriorityFeePerGas, maxFeePerGas),
-    paymasterAndData: "0x",
-    signature: "0x",
-  };
-}
-
-export async function getUserOpHash(op: BuiltUserOp, chainId?: number): Promise<Hex> {
-  const client = clientForChain(chainId ?? CHAIN_ID);
-  return client.readContract({
-    address: ENTRYPOINT,
-    abi: entryPointAbi,
-    functionName: "getUserOpHash",
-    args: [
-      [
-        op.sender,
-        op.nonce,
-        op.initCode,
-        op.callData,
-        op.accountGasLimits,
-        op.preVerificationGas,
-        op.gasFees,
-        op.paymasterAndData,
-        op.signature,
-      ],
-    ],
-  });
-}
-
-// ---------------------------------------------------------------------------
 // Discoverable passkey signing — empty allowCredentials triggers the browser's
 // passkey chooser so the user picks the right name.
 // ---------------------------------------------------------------------------
@@ -424,112 +345,75 @@ export async function verifyPasskey(credentialId: string): Promise<boolean> {
   return !!cred;
 }
 
-/// Sign with the passkey bound to the given name. If `credentialId` is provided,
-/// the browser is told to use exactly that passkey — no chooser, straight to
-/// the authenticator. If empty, falls back to discoverable mode (browser shows chooser).
-export async function signUserOpHashForName(
-  hash: Hex,
-  credentialId: string,
-): Promise<Hex> {
-  const challenge = hexToBytes(hash);
-
-  const allowCredentials = credentialId
-    ? [{
-        id: base64UrlToBytes(credentialId),
-        type: "public-key" as const,
-        transports: ["internal", "hybrid"] as AuthenticatorTransport[],
-      }]
-    : [];
-
-  const cred = (await navigator.credentials.get({
-    publicKey: {
-      challenge,
-      rpId: window.location.hostname,
-      userVerification: "required",
-      timeout: 60_000,
-      allowCredentials,
-    },
-  })) as PublicKeyCredential | null;
-  if (!cred) throw new Error("passkey prompt cancelled");
-
-  const response = cred.response as AuthenticatorAssertionResponse;
-  const authenticatorData = bytesToHex(new Uint8Array(response.authenticatorData));
-  const clientDataJSON = new TextDecoder().decode(response.clientDataJSON);
-  const sigDer = new Uint8Array(response.signature);
-
-  const { r, s } = parseDerEcdsa(sigDer);
-  const sNorm = lowS(s);
-
-  const challengeIndex = BigInt(clientDataJSON.indexOf('"challenge"'));
-  const typeIndex = BigInt(clientDataJSON.indexOf('"type"'));
-
-  const webAuthnAuth = encodeAbiParameters(
-    [
-      {
-        components: [
-          { name: "authenticatorData", type: "bytes" },
-          { name: "clientDataJSON", type: "bytes" },
-          { name: "challengeIndex", type: "uint256" },
-          { name: "typeIndex", type: "uint256" },
-          { name: "r", type: "bytes32" },
-          { name: "s", type: "bytes32" },
-        ],
-        type: "tuple",
-      },
-    ],
-    [
-      {
-        authenticatorData,
-        clientDataJSON: stringToHex(clientDataJSON),
-        challengeIndex,
-        typeIndex,
-        r: padHex(numberToHex(r), { size: 32 }),
-        s: padHex(numberToHex(sNorm), { size: 32 }),
-      },
-    ],
-  );
-
-  return encodeAbiParameters(
-    [
-      {
-        components: [
-          { name: "ownerIndex", type: "uint256" },
-          { name: "signatureData", type: "bytes" },
-        ],
-        type: "tuple",
-      },
-    ],
-    [{ ownerIndex: 0n, signatureData: webAuthnAuth }],
-  );
-}
-
 // ---------------------------------------------------------------------------
-// Relay
+// Submission via viem's bundler client + Pimlico paymaster
 // ---------------------------------------------------------------------------
 
-export async function relayUserOp(op: BuiltUserOp, chainId?: number): Promise<{
-  tx: Hex;
-  success: boolean;
-  blockNumber: string;
-  gasUsed: string;
-  status?: string;
-  error?: string;
-}> {
-  const res = await fetch("/api/relay", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      chainId: chainId ?? CHAIN_ID,
-      userOp: {
-        ...op,
-        nonce: op.nonce.toString(),
-        preVerificationGas: op.preVerificationGas.toString(),
-      },
-    }),
+/// Pimlico sponsorship policy. Identifies which gas budget to bill against
+/// when calling `pm_*`. The paymaster address is returned in the RPC response
+/// (not hardcoded here).
+const SPONSORSHIP_POLICY_ID = "sp_nice_the_fallen";
+
+/// One-call send: build → sponsor → sign → submit → wait, all driven by
+/// viem's `bundlerClient.sendUserOperation`. The paymaster wrapper handles
+/// Pimlico's bogus-gas-limit quirk.
+export async function sendUserOp(opts: {
+  account: `0x${string}`;
+  credentialId: string;
+  target: `0x${string}`;
+  value?: bigint;
+  data?: Hex;
+  chainId?: number;
+}): Promise<{ tx: Hex; success: boolean; blockNumber: string; gasUsed: string }> {
+  const { createBundlerClient, createPaymasterClient } = await import(
+    "viem/account-abstraction"
+  );
+  const { http } = await import("viem");
+  const { toEnsignAccount } = await import("./ensignAccount");
+  const { createPaymasterFunctions } = await import("./paymasterFns");
+
+  const cid = opts.chainId ?? CHAIN_ID;
+  const client = clientForChain(cid);
+
+  // viem's `toSmartAccount` and `createBundlerClient` infer slightly
+  // different `Client` shapes — same runtime type, but TS won't unify them.
+  // Casting to `any` here is safe and keeps the public surface clean.
+  const smartAccount = await toEnsignAccount({
+    client: client as never,
+    account: opts.account,
+    credentialId: opts.credentialId,
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || `relay failed: ${res.status}`);
-  return json;
+
+  const paymasterClient = createPaymasterClient({
+    transport: http(bundlerUrl(cid)),
+  });
+
+  const bundlerClient = createBundlerClient({
+    client: client as never,
+    transport: http(bundlerUrl(cid)),
+    paymaster: createPaymasterFunctions(client as never, paymasterClient, cid, {
+      sponsorshipPolicyId: SPONSORSHIP_POLICY_ID,
+    }) as never,
+  });
+
+  const userOpHash = await bundlerClient.sendUserOperation({
+    account: smartAccount,
+    calls: [
+      {
+        to: opts.target,
+        value: opts.value ?? 0n,
+        data: opts.data ?? "0x",
+      },
+    ],
+  });
+
+  const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
+  return {
+    tx: receipt.receipt.transactionHash,
+    success: receipt.success,
+    blockNumber: receipt.receipt.blockNumber.toString(),
+    gasUsed: receipt.actualGasUsed.toString(),
+  };
 }
 
 // ---------------------------------------------------------------------------

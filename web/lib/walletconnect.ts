@@ -15,13 +15,7 @@ import {
   type Hex,
 } from "viem";
 
-import {
-  buildExecuteUserOp,
-  getUserOpHash,
-  relayUserOp,
-  resolveLabel,
-  signUserOpHashForName,
-} from "./ensign";
+import { resolveLabel, sendUserOp } from "./ensign";
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_WC_PROJECT_ID as string;
 const CHAIN = "eip155:11155111"; // Sepolia
@@ -126,9 +120,9 @@ export type SignContext = {
   credentialId: string; // base64url credential id from ENS text record
 };
 
-/// Translate a WalletConnect request into a signed/relayed result. Routes:
-/// - `eth_sendTransaction` → build UserOp on the JAW, Face ID, relay handleOps,
-///   return the on-chain tx hash.
+/// Translate a WalletConnect request into a signed/submitted result. Routes:
+/// - `eth_sendTransaction` → build UserOp on the smart account, passkey signs,
+///   submit through the bundler, return the on-chain tx hash.
 /// - `personal_sign` / `eth_signTypedData_v4` → not yet implemented (Solady
 ///   ERC-7739 nested EIP-712 wrapping required); rejects with a clear error.
 /// - `eth_chainId` / `eth_accounts` → answered locally.
@@ -161,26 +155,22 @@ export async function handleRequest(
         : 0n
       : 0n;
 
-    const userOp = await buildExecuteUserOp({
+    const result = await sendUserOp({
       account: ctx.account,
+      credentialId: ctx.credentialId,
       target: tx.to,
       value,
       data: (tx.data ?? "0x") as Hex,
     });
-    const hash = await getUserOpHash(userOp);
-    const sig = await signUserOpHashForName(hash, ctx.credentialId);
-    userOp.signature = sig;
-
-    const relay = await relayUserOp(userOp);
-    if (!relay.success) {
+    if (!result.success) {
       return {
         error: {
           code: -32603,
-          message: `UserOp failed (tx ${relay.tx})`,
+          message: `UserOp failed (tx ${result.tx})`,
         },
       };
     }
-    return { result: relay.tx };
+    return { result: result.tx };
   }
 
   if (method === "personal_sign" || method === "eth_signTypedData_v4") {

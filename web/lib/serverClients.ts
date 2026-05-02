@@ -64,9 +64,4 @@ export function ownersFor(qx: Hex, qy: Hex): Hex[] {
 export const epAbi = parseAbi([
   "function depositTo(address) payable",
   "function balanceOf(address) view returns (uint256)",
-  "function handleOps((address,uint256,bytes,bytes,bytes32,uint256,bytes32,bytes,bytes)[],address)",
 ]);
-
-/// Topic hash of EntryPoint's `UserOperationEvent`.
-export const USER_OP_EVENT_TOPIC: Hex =
-  "0x49628fd1471006c1482da88028e9ce4dbb080b815c9b0344d39e5a8e6ec1419f";
