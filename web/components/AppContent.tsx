@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import "../app/app.css";
 import {
   PARENT_NAME,
+  REGISTRY,
   checkLabel,
   createPasskeyForLabel,
   registerName,
@@ -230,15 +231,14 @@ export default function AppContent() {
 
       <main className="landing-grid">
         <section className="pitch">
-          <p className="kicker">sign in with name</p>
+          <p className="kicker">ENS as a Wallet</p>
           <h1 className="hero-title">
             your name<br />
             is the <em>wallet</em>.
           </h1>
           <p className="hero-sub">
             ENSign turns ENS subnames into self-custodial smart accounts.
-            Pick a name. Approve with a passkey. <strong>The subname is the wallet</strong> —
-            no seed phrase, no extension, no chain to switch.
+            Pick a name. Approve with a passkey. <strong>The subname is the wallet</strong>
           </p>
 
           <ul className="bullets">
@@ -385,21 +385,28 @@ export default function AppContent() {
             )}
           </div>
 
-          <p className="signup-foot">
-            no email · no password · the credential never leaves your device
-          </p>
+
+          <aside className="ensv2-tag" aria-label="Built on ENS V2">
+            <span className="ensv2-tag-eyebrow">// foundation</span>
+            <p className="ensv2-tag-title">
+              built on top of <em>ENS V2</em>
+            </p>
+            <a
+              className="ensv2-tag-registry"
+              href={`https://sepolia.etherscan.io/address/${REGISTRY}`}
+              target="_blank"
+              rel="noreferrer"
+              title="ENSign registry on Sepolia"
+            >
+              <span className="ensv2-tag-registry-label">ENSign registry</span>
+              <span className="ensv2-tag-registry-addr mono">
+                {REGISTRY.slice(0, 6)}…{REGISTRY.slice(-4)}
+              </span>
+              <span className="ensv2-tag-registry-arrow">↗</span>
+            </a>
+          </aside>
         </aside>
       </main>
-
-      <section className="ensv2-stripe" aria-label="Built on ENS V2">
-        <span className="ensv2-stripe-eyebrow">// foundation</span>
-        <h2 className="ensv2-stripe-title">
-          built on top of <em>ENS V2</em>
-        </h2>
-        <p className="ensv2-stripe-sub">
-          subname registry · custom resolver · namespaced agent capabilities.
-        </p>
-      </section>
 
       <footer className="foot">
         <span className="brand-name">

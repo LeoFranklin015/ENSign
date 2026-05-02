@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { clearSession, getSession } from "@/lib/session";
-import { PARENT_NAME, REGISTRY } from "@/lib/ensign";
+import { PARENT_NAME } from "@/lib/ensign";
 import { useEffect, useRef, useState } from "react";
 
 export function Nav() {
@@ -167,14 +167,7 @@ export function Nav() {
             )}
           </div>
         ) : (
-          <a
-            href={`https://sepolia.etherscan.io/address/${REGISTRY}`}
-            target="_blank"
-            rel="noreferrer"
-            title="ENSign registry"
-          >
-            {REGISTRY.slice(0, 6)}…{REGISTRY.slice(-4)}
-          </a>
+          <span aria-hidden="true" />
         )}
       </div>
     </header>
