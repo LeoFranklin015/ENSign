@@ -18,119 +18,100 @@ import { BookmarkletCard } from "@/components/BookmarkletCard";
 
 export default function AppContent() {
   return (
-    <div className="patent">
-      <header className="patent-bar">
+    <div className="app-shell">
+      <header className="bar">
         <span className="brand">
-          <span className="brand-mark">⌑</span>
+          <span className="brand-glyph" aria-hidden="true" />
           <span className="brand-name">
             EN<em>S</em>ign
           </span>
         </span>
-        <span className="patent-meta">
-          <span>Sepolia · v2 staging</span>
-          <span className="dot" />
-          <span>
-            parent{" "}
-            <a
-              href={`https://explorer.ens.dev/${PARENT_NAME}/subnames`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {PARENT_NAME}
-            </a>
+        <div className="bar-right">
+          <span className="tag">
+            <span className="tag-pulse" aria-hidden="true" />
+            <span>sepolia · v2 staging</span>
           </span>
-          <span className="dot" />
+          <a
+            href={`https://explorer.ens.dev/${PARENT_NAME}/subnames`}
+            target="_blank"
+            rel="noreferrer"
+            title="parent name"
+          >
+            {PARENT_NAME}
+          </a>
           <a
             href={`https://sepolia.etherscan.io/address/${REGISTRY}`}
             target="_blank"
             rel="noreferrer"
             title="ENSign registry"
           >
-            registry {REGISTRY.slice(0, 6)}…{REGISTRY.slice(-4)}
+            {REGISTRY.slice(0, 6)}…{REGISTRY.slice(-4)}
           </a>
-        </span>
+        </div>
       </header>
 
-      <main className="patent-main">
+      <main className="main">
         <section className="hero">
-          <div>
-            <p className="hero-eyebrow">Sign with name</p>
-            <h1 className="hero-title">
-              Your name is the <em>wallet</em>.
-            </h1>
-          </div>
-          <p className="hero-aside">
-            Type a name. Touch your face. The ENS subname IS the smart account — passkey-controlled,
-            self-custodial, no seed.
-            <span className="hero-aside-strong">No extension · no seed · no chain to switch</span>
+          <p className="kicker">sign with name</p>
+          <h1 className="hero-title">
+            your name<br />
+            is the <em>wallet</em>.
+          </h1>
+          <p className="hero-sub">
+            Type a name. Touch your face. The ENS subname <strong>is</strong> the smart account —
+            passkey-controlled, self-custodial, no seed phrase, no extension, nothing to install.
           </p>
         </section>
 
-        <hr className="patent-rule" />
-
-        <section className="patent-section">
-          <header className="section-head">
-            <span className="section-numeral">i.</span>
-            <p className="section-kicker">Chapter one</p>
-            <h2 className="section-title">Claim a name</h2>
+        <section className="section">
+          <header className="section-header">
+            <h2 className="section-title">claim</h2>
+            <span className="section-meta">01 / register a name</span>
           </header>
-          <div className="patent-body">
-            <RegisterCard />
-          </div>
+          <RegisterCard />
         </section>
 
-        <hr className="patent-rule" />
-
-        <section className="patent-section">
-          <header className="section-head">
-            <span className="section-numeral">ii.</span>
-            <p className="section-kicker">Chapter two</p>
-            <h2 className="section-title">Sign by name</h2>
+        <section className="section">
+          <header className="section-header">
+            <h2 className="section-title">sign</h2>
+            <span className="section-meta">02 / send by name</span>
           </header>
-          <div className="patent-body">
-            <SendCard />
-          </div>
+          <SendCard />
         </section>
 
-        <hr className="patent-rule" />
-
-        <section className="patent-section">
-          <header className="section-head">
-            <span className="section-numeral">iii.</span>
-            <p className="section-kicker">Chapter three</p>
-            <h2 className="section-title">Carry it everywhere</h2>
+        <section className="section">
+          <header className="section-header">
+            <h2 className="section-title">embed</h2>
+            <span className="section-meta">03 / wallet on any dApp</span>
           </header>
-          <div className="patent-body">
-            <p className="lede">
-              Drop the bookmarklet into your bar — <em>any dApp</em> sees ENSign as a wallet.
-              No extension to install, nothing for the dApp to integrate.
-            </p>
-            <BookmarkletCard />
-          </div>
+          <p className="lead">
+            Drop the bookmarklet into your bar — <em>any dApp</em> sees ENSign as a wallet.
+            No extension to install, nothing for the dApp to integrate.
+          </p>
+          <BookmarkletCard />
         </section>
       </main>
 
-      <footer className="patent-foot">
-        <span>
-          ❦ &nbsp; <strong>EN<em>S</em>ign</strong> &nbsp;·&nbsp; sealed at Sepolia v2 staging
+      <footer className="foot">
+        <span className="brand-name">
+          EN<em style={{ color: "var(--acc)", fontStyle: "normal" }}>S</em>ign
         </span>
-        <span>
-          <a
-            href="https://github.com/LeoFranklin015/ENSign"
-            target="_blank"
-            rel="noreferrer"
-          >
-            github
-          </a>
-        </span>
+        <span>sepolia · v2 staging · live</span>
+        <a
+          href="https://github.com/LeoFranklin015/ENSign"
+          target="_blank"
+          rel="noreferrer"
+        >
+          github
+        </a>
       </footer>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────
 // Register
-// ─────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────
 
 type RegisterStep = "idle" | "creating" | "registering" | "done";
 
@@ -170,21 +151,21 @@ function RegisterCard() {
     }
   }
 
-  const stepLabel =
+  const stepCopy =
     step === "creating"
-      ? "Awaiting Face ID…"
+      ? "awaiting face id"
       : step === "registering"
-        ? "Sealing on Sepolia…"
-        : "Sign and seal";
+        ? "registering on sepolia"
+        : "sign with face id";
 
   return (
     <>
-      <p className="lede">
-        A fresh passkey, atomically bound to <em>{`<your-name>.${PARENT_NAME}`}</em>. The subname{" "}
-        <em>is</em> the wallet — `addr(node)` returns the smart-account address.
+      <p className="lead">
+        Create a passkey, atomically bind it to <em>{`<your-name>.${PARENT_NAME}`}</em>.
+        The subname <em>is</em> the wallet — `addr(node)` returns the smart account address.
       </p>
 
-      <div className="sig-input">
+      <div className="amount-input">
         <input
           placeholder="alice"
           value={label}
@@ -194,33 +175,37 @@ function RegisterCard() {
           spellCheck={false}
           autoComplete="off"
         />
-        <span className="sig-suffix">.{PARENT_NAME}</span>
+        <span className="suffix">.{PARENT_NAME}</span>
       </div>
 
-      <button className="btn" onClick={handleCreate} disabled={isBusy || !label}>
-        <span>{stepLabel}</span>
-        <span className="btn-arrow">{isBusy ? "·" : "→"}</span>
+      <button
+        className={`action${isBusy ? " busy" : ""}`}
+        onClick={handleCreate}
+        disabled={isBusy || !label}
+      >
+        <span>{stepCopy}</span>
+        <span className="action-arrow">{isBusy ? "···" : "→"}</span>
       </button>
 
       {isBusy && (
         <div className="status">
-          <span className="status-pulse" />
+          <span className="status-dot" aria-hidden="true" />
           <span>
             {step === "creating"
-              ? "credential ceremony in progress"
+              ? "credential ceremony in browser"
               : "broadcasting to ensign registry"}
           </span>
         </div>
       )}
 
-      {error && <div className="err-line">{error}</div>}
+      {error && <div className="err">{error}</div>}
 
       {result && (
         <div className="receipt">
-          <div className="receipt-head">
+          <div className="receipt-top">
             <p className="receipt-name">
               <b>{result.fullName.split(".")[0]}</b>
-              <span style={{ color: "var(--ink-muted)" }}>.{PARENT_NAME}</span>
+              <span>.{PARENT_NAME}</span>
             </p>
             <span className="receipt-stamp">sealed</span>
           </div>
@@ -235,14 +220,14 @@ function RegisterCard() {
                 {result.account}
               </a>
             </dd>
-            <dt>register tx</dt>
+            <dt>tx</dt>
             <dd>
               <a
                 href={`https://sepolia.etherscan.io/tx/${result.registerTx}`}
                 target="_blank"
                 rel="noreferrer"
               >
-                {result.registerTx.slice(0, 18)}…
+                {result.registerTx}
               </a>
             </dd>
           </dl>
@@ -252,9 +237,9 @@ function RegisterCard() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────
 // Send
-// ─────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────
 
 const RELAYER = "0xE08224B2CfaF4f27E2DC7cB3f6B99AcC68Cf06c0";
 
@@ -277,8 +262,7 @@ function SendCard() {
     gasUsed: string;
   } | null>(null);
 
-  const isBusy =
-    step === "resolving" || step === "signing" || step === "relaying";
+  const isBusy = step === "resolving" || step === "signing" || step === "relaying";
 
   useEffect(() => {
     let cancelled = false;
@@ -295,7 +279,7 @@ function SendCard() {
           balance: balance.toString(),
         });
       } catch {
-        // not yet registered
+        // not registered yet
       }
     })();
     return () => {
@@ -307,18 +291,18 @@ function SendCard() {
     setError(null);
     setResult(null);
     if (!resolved) {
-      setError("Type a registered label first.");
+      setError("type a registered name first.");
       return;
     }
     if (!target.match(/^0x[a-fA-F0-9]{40}$/)) {
-      setError("Target address looks malformed.");
+      setError("target address looks malformed.");
       return;
     }
     let value: bigint;
     try {
       value = BigInt(valueWei);
     } catch {
-      setError("Value must be an integer in wei.");
+      setError("value must be an integer in wei.");
       return;
     }
     try {
@@ -345,23 +329,23 @@ function SendCard() {
     }
   }
 
-  const stepLabel =
+  const stepCopy =
     step === "resolving"
-      ? "Walking ENS…"
+      ? "walking ens"
       : step === "signing"
-        ? "Awaiting Face ID…"
+        ? "awaiting face id"
         : step === "relaying"
-          ? "Through EntryPoint…"
-          : "Sign and broadcast";
+          ? "broadcasting"
+          : "sign and broadcast";
 
   return (
     <>
-      <p className="lede">
-        Type a registered name. We resolve it on-chain, build the UserOp, and your browser asks the
+      <p className="lead">
+        Type a registered name. We resolve on-chain, build the UserOp, and your browser asks the
         right passkey by name. <em>No login. No session.</em>
       </p>
 
-      <div className="sig-input">
+      <div className="amount-input">
         <input
           placeholder="alice"
           value={label}
@@ -370,11 +354,11 @@ function SendCard() {
           spellCheck={false}
           autoComplete="off"
         />
-        <span className="sig-suffix">.{PARENT_NAME}</span>
+        <span className="suffix">.{PARENT_NAME}</span>
       </div>
 
       {resolved && (
-        <dl className="resolve-preview">
+        <dl className="resolve">
           <dt>resolves</dt>
           <dd>
             <a
@@ -390,7 +374,7 @@ function SendCard() {
         </dl>
       )}
 
-      <div className="field-row">
+      <div className="field">
         <span className="field-label">to</span>
         <input
           placeholder="0x…"
@@ -399,7 +383,7 @@ function SendCard() {
           disabled={isBusy}
         />
       </div>
-      <div className="field-row">
+      <div className="field">
         <span className="field-label">value (wei)</span>
         <input
           type="text"
@@ -411,17 +395,18 @@ function SendCard() {
       </div>
 
       <button
-        className="btn"
+        className={`action${isBusy ? " busy" : ""}`}
         onClick={handleSend}
         disabled={isBusy || !resolved}
+        style={{ marginTop: 24 }}
       >
-        <span>{stepLabel}</span>
-        <span className="btn-arrow">{isBusy ? "·" : "→"}</span>
+        <span>{stepCopy}</span>
+        <span className="action-arrow">{isBusy ? "···" : "→"}</span>
       </button>
 
       {isBusy && (
         <div className="status">
-          <span className="status-pulse" />
+          <span className="status-dot" aria-hidden="true" />
           <span>
             {step === "resolving"
               ? "registry → resolver → addr"
@@ -432,16 +417,16 @@ function SendCard() {
         </div>
       )}
 
-      {error && <div className="err-line">{error}</div>}
+      {error && <div className="err">{error}</div>}
 
       {result && (
-        <div className={`receipt${result.success ? "" : " receipt--err"}`}>
-          <div className="receipt-head">
+        <div className="receipt">
+          <div className="receipt-top">
             <p className="receipt-name">
               <b>{result.success ? "broadcast" : "reverted"}</b>{" "}
-              <span style={{ color: "var(--ink-muted)" }}>by name</span>
+              <span>by name</span>
             </p>
-            <span className="receipt-stamp">
+            <span className={`receipt-stamp${result.success ? "" : " fail"}`}>
               {result.success ? "ok" : "failed"}
             </span>
           </div>
