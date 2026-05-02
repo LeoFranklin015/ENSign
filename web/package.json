@@ -1,15 +1,13 @@
 {
-  "name": "webauth-contract",
+  "name": "ensign-web",
+  "version": "0.1.0",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
   "scripts": {
-    "dev": "vite",
-    "server": "node server.mjs",
-    "build": "vite build",
-    "typecheck": "tsc -b",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "dev": "next dev -p 5173",
+    "build": "next build",
+    "start": "next start -p 5173",
+    "lint": "next lint",
+    "bot": "tsx scripts/bot.ts"
   },
   "dependencies": {
     "@forum/passkeys": "github:onit-labs/passkeys",
@@ -17,25 +15,18 @@
     "@shazow/whatsabi": "^0.26.0",
     "@walletconnect/core": "^2.23.9",
     "@walletconnect/utils": "^2.23.9",
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
     "lucide-react": "^1.14.0",
+    "next": "15.1.6",
     "ox": "^0.8.8",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
     "viem": "^2.34.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.33.0",
-    "@types/react": "^19.1.10",
-    "@types/react-dom": "^19.1.7",
-    "@vitejs/plugin-react": "^5.0.0",
-    "eslint": "^9.33.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.20",
-    "globals": "^16.3.0",
-    "typescript": "~5.8.3",
-    "typescript-eslint": "^8.39.1",
-    "vite": "^7.1.2"
+    "@types/node": "^22.10.7",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.3"
   }
 }
