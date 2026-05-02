@@ -1,6 +1,5 @@
 "use client";
 
-
 import { useEffect, useState } from "react";
 import "../app/app.css";
 import {
@@ -15,42 +14,123 @@ import {
   resolveLabel,
   signUserOpHashForName,
 } from "@/lib/ensign";
-import { WalletConnectCard } from "@/components/WalletConnectCard";
 import { BookmarkletCard } from "@/components/BookmarkletCard";
 
-export default function App() {
+export default function AppContent() {
   return (
-    <div className="app">
-      <header>
-        <h1>ENSign</h1>
-        <p className="tag">Sign with ENS. Subname is the wallet.</p>
-        <p className="muted small">
-          Registry:{" "}
+    <div className="patent">
+      <header className="patent-bar">
+        <span className="brand">
+          <span className="brand-mark">⌑</span>
+          <span className="brand-name">
+            EN<em>S</em>ign
+          </span>
+        </span>
+        <span className="patent-meta">
+          <span>Sepolia · v2 staging</span>
+          <span className="dot" />
+          <span>
+            parent{" "}
+            <a
+              href={`https://explorer.ens.dev/${PARENT_NAME}/subnames`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {PARENT_NAME}
+            </a>
+          </span>
+          <span className="dot" />
           <a
             href={`https://sepolia.etherscan.io/address/${REGISTRY}`}
             target="_blank"
             rel="noreferrer"
-            className="link"
+            title="ENSign registry"
           >
-            {REGISTRY.slice(0, 10)}…
-          </a>{" "}
-          · parent: <code>{PARENT_NAME}</code>
-        </p>
+            registry {REGISTRY.slice(0, 6)}…{REGISTRY.slice(-4)}
+          </a>
+        </span>
       </header>
 
-      <main>
-        <RegisterCard />
-        <SendCard />
-        <WalletConnectCard />
-        <BookmarkletCard />
+      <main className="patent-main">
+        <section className="hero">
+          <div>
+            <p className="hero-eyebrow">Sign with name</p>
+            <h1 className="hero-title">
+              Your name is the <em>wallet</em>.
+            </h1>
+          </div>
+          <p className="hero-aside">
+            Type a name. Touch your face. The ENS subname IS the smart account — passkey-controlled,
+            self-custodial, no seed.
+            <span className="hero-aside-strong">No extension · no seed · no chain to switch</span>
+          </p>
+        </section>
+
+        <hr className="patent-rule" />
+
+        <section className="patent-section">
+          <header className="section-head">
+            <span className="section-numeral">i.</span>
+            <p className="section-kicker">Chapter one</p>
+            <h2 className="section-title">Claim a name</h2>
+          </header>
+          <div className="patent-body">
+            <RegisterCard />
+          </div>
+        </section>
+
+        <hr className="patent-rule" />
+
+        <section className="patent-section">
+          <header className="section-head">
+            <span className="section-numeral">ii.</span>
+            <p className="section-kicker">Chapter two</p>
+            <h2 className="section-title">Sign by name</h2>
+          </header>
+          <div className="patent-body">
+            <SendCard />
+          </div>
+        </section>
+
+        <hr className="patent-rule" />
+
+        <section className="patent-section">
+          <header className="section-head">
+            <span className="section-numeral">iii.</span>
+            <p className="section-kicker">Chapter three</p>
+            <h2 className="section-title">Carry it everywhere</h2>
+          </header>
+          <div className="patent-body">
+            <p className="lede">
+              Drop the bookmarklet into your bar — <em>any dApp</em> sees ENSign as a wallet.
+              No extension to install, nothing for the dApp to integrate.
+            </p>
+            <BookmarkletCard />
+          </div>
+        </section>
       </main>
+
+      <footer className="patent-foot">
+        <span>
+          ❦ &nbsp; <strong>EN<em>S</em>ign</strong> &nbsp;·&nbsp; sealed at Sepolia v2 staging
+        </span>
+        <span>
+          <a
+            href="https://github.com/LeoFranklin015/ENSign"
+            target="_blank"
+            rel="noreferrer"
+          >
+            github
+          </a>
+        </span>
+      </footer>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Register card — claim a fresh subname with a new passkey
-// ---------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────
+// Register
+// ─────────────────────────────────────────────────────────────────────────
 
 type RegisterStep = "idle" | "creating" | "registering" | "done";
 
@@ -70,7 +150,7 @@ function RegisterCard() {
     setError(null);
     setResult(null);
     if (!label.match(/^[a-z0-9-]{1,32}$/)) {
-      setError("Label must be 1-32 chars: lowercase letters, digits, hyphens.");
+      setError("Label must be 1–32 chars: lowercase letters, digits, hyphens.");
       return;
     }
     try {
@@ -90,39 +170,62 @@ function RegisterCard() {
     }
   }
 
+  const stepLabel =
+    step === "creating"
+      ? "Awaiting Face ID…"
+      : step === "registering"
+        ? "Sealing on Sepolia…"
+        : "Sign and seal";
+
   return (
-    <section className="card">
-      <h2>Register a name</h2>
-      <p className="muted">
-        Create a fresh passkey (Face ID / Touch ID) and atomically mint{" "}
-        <code>{`<label>.${PARENT_NAME}`}</code> as a smart account owned by that passkey. Nothing
-        is saved client-side — the public key lives on the JAW account, the credential lives in
-        your authenticator.
+    <>
+      <p className="lede">
+        A fresh passkey, atomically bound to <em>{`<your-name>.${PARENT_NAME}`}</em>. The subname{" "}
+        <em>is</em> the wallet — `addr(node)` returns the smart-account address.
       </p>
-      <div className="row">
+
+      <div className="sig-input">
         <input
           placeholder="alice"
           value={label}
           onChange={(e) => setLabel(e.target.value.toLowerCase().trim())}
           disabled={isBusy}
           autoFocus
+          spellCheck={false}
+          autoComplete="off"
         />
-        <span className="suffix">.{PARENT_NAME}</span>
+        <span className="sig-suffix">.{PARENT_NAME}</span>
       </div>
-      <button onClick={handleCreate} disabled={isBusy || !label}>
-        {step === "creating"
-          ? "Awaiting Face ID…"
-          : step === "registering"
-            ? "Registering on Sepolia…"
-            : "Create passkey + claim"}
+
+      <button className="btn" onClick={handleCreate} disabled={isBusy || !label}>
+        <span>{stepLabel}</span>
+        <span className="btn-arrow">{isBusy ? "·" : "→"}</span>
       </button>
 
-      {error && <div className="err">{error}</div>}
+      {isBusy && (
+        <div className="status">
+          <span className="status-pulse" />
+          <span>
+            {step === "creating"
+              ? "credential ceremony in progress"
+              : "broadcasting to ensign registry"}
+          </span>
+        </div>
+      )}
+
+      {error && <div className="err-line">{error}</div>}
+
       {result && (
-        <div className="ok">
-          <strong>Registered {result.fullName}</strong>
-          <dl className="kv">
-            <dt>JAW account</dt>
+        <div className="receipt">
+          <div className="receipt-head">
+            <p className="receipt-name">
+              <b>{result.fullName.split(".")[0]}</b>
+              <span style={{ color: "var(--ink-muted)" }}>.{PARENT_NAME}</span>
+            </p>
+            <span className="receipt-stamp">sealed</span>
+          </div>
+          <dl className="receipt-grid">
+            <dt>account</dt>
             <dd>
               <a
                 href={`https://sepolia.etherscan.io/address/${result.account}`}
@@ -132,7 +235,7 @@ function RegisterCard() {
                 {result.account}
               </a>
             </dd>
-            <dt>Register tx</dt>
+            <dt>register tx</dt>
             <dd>
               <a
                 href={`https://sepolia.etherscan.io/tx/${result.registerTx}`}
@@ -145,13 +248,13 @@ function RegisterCard() {
           </dl>
         </div>
       )}
-    </section>
+    </>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Send card — name-driven transaction signing
-// ---------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────
+// Send
+// ─────────────────────────────────────────────────────────────────────────
 
 const RELAYER = "0xE08224B2CfaF4f27E2DC7cB3f6B99AcC68Cf06c0";
 
@@ -174,9 +277,9 @@ function SendCard() {
     gasUsed: string;
   } | null>(null);
 
-  const isBusy = step === "resolving" || step === "signing" || step === "relaying";
+  const isBusy =
+    step === "resolving" || step === "signing" || step === "relaying";
 
-  // Auto-resolve when the user types a valid label
   useEffect(() => {
     let cancelled = false;
     setResolved(null);
@@ -186,9 +289,13 @@ function SendCard() {
         const r = await resolveLabel(label);
         const balance = await publicClient.getBalance({ address: r.account });
         if (cancelled) return;
-        setResolved({ fullName: r.fullName, account: r.account, balance: balance.toString() });
+        setResolved({
+          fullName: r.fullName,
+          account: r.account,
+          balance: balance.toString(),
+        });
       } catch {
-        // silently ignore — name not registered yet
+        // not yet registered
       }
     })();
     return () => {
@@ -211,7 +318,7 @@ function SendCard() {
     try {
       value = BigInt(valueWei);
     } catch {
-      setError("Value must be an integer (in wei).");
+      setError("Value must be an integer in wei.");
       return;
     }
     try {
@@ -238,31 +345,37 @@ function SendCard() {
     }
   }
 
+  const stepLabel =
+    step === "resolving"
+      ? "Walking ENS…"
+      : step === "signing"
+        ? "Awaiting Face ID…"
+        : step === "relaying"
+          ? "Through EntryPoint…"
+          : "Sign and broadcast";
+
   return (
-    <section className="card">
-      <h2>Send a transaction</h2>
-      <p className="muted">
-        Type a registered name. We resolve it from ENS, build the UserOp, and your browser
-        prompts the matching passkey via Face ID / Touch ID. No login, no session — pick the name
-        each time.
+    <>
+      <p className="lede">
+        Type a registered name. We resolve it on-chain, build the UserOp, and your browser asks the
+        right passkey by name. <em>No login. No session.</em>
       </p>
 
-      <label className="field">
-        <span>From name</span>
-        <div className="row">
-          <input
-            placeholder="alice"
-            value={label}
-            onChange={(e) => setLabel(e.target.value.toLowerCase().trim())}
-            disabled={isBusy}
-          />
-          <span className="suffix">.{PARENT_NAME}</span>
-        </div>
-      </label>
+      <div className="sig-input">
+        <input
+          placeholder="alice"
+          value={label}
+          onChange={(e) => setLabel(e.target.value.toLowerCase().trim())}
+          disabled={isBusy}
+          spellCheck={false}
+          autoComplete="off"
+        />
+        <span className="sig-suffix">.{PARENT_NAME}</span>
+      </div>
 
       {resolved && (
-        <dl className="kv">
-          <dt>resolves to</dt>
+        <dl className="resolve-preview">
+          <dt>resolves</dt>
           <dd>
             <a
               href={`https://sepolia.etherscan.io/address/${resolved.account}`}
@@ -273,22 +386,21 @@ function SendCard() {
             </a>
           </dd>
           <dt>balance</dt>
-          <dd>{resolved.balance} wei</dd>
+          <dd>{formatWei(resolved.balance)}</dd>
         </dl>
       )}
 
-      <label className="field">
-        <span>Send to</span>
+      <div className="field-row">
+        <span className="field-label">to</span>
         <input
           placeholder="0x…"
           value={target}
           onChange={(e) => setTarget(e.target.value.trim())}
           disabled={isBusy}
         />
-      </label>
-
-      <label className="field">
-        <span>Amount (wei)</span>
+      </div>
+      <div className="field-row">
+        <span className="field-label">value (wei)</span>
         <input
           type="text"
           inputMode="numeric"
@@ -296,35 +408,71 @@ function SendCard() {
           onChange={(e) => setValueWei(e.target.value.trim())}
           disabled={isBusy}
         />
-      </label>
+      </div>
 
-      <button onClick={handleSend} disabled={isBusy || !resolved}>
-        {step === "resolving"
-          ? "Resolving…"
-          : step === "signing"
-            ? "Pick passkey, then Face ID…"
-            : step === "relaying"
-              ? "Relaying through EntryPoint…"
-              : "Sign with passkey + send"}
+      <button
+        className="btn"
+        onClick={handleSend}
+        disabled={isBusy || !resolved}
+      >
+        <span>{stepLabel}</span>
+        <span className="btn-arrow">{isBusy ? "·" : "→"}</span>
       </button>
 
-      {error && <div className="err">{error}</div>}
-      {result && (
-        <div className={result.success ? "ok" : "err"}>
-          <strong>{result.success ? "UserOp succeeded" : "UserOp failed"}</strong>
-          <div>
-            tx:{" "}
-            <a
-              href={`https://sepolia.etherscan.io/tx/${result.tx}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {result.tx.slice(0, 18)}…
-            </a>
-          </div>
-          <div>gas used: {result.gasUsed}</div>
+      {isBusy && (
+        <div className="status">
+          <span className="status-pulse" />
+          <span>
+            {step === "resolving"
+              ? "registry → resolver → addr"
+              : step === "signing"
+                ? "browser passkey ceremony"
+                : "EntryPoint.handleOps"}
+          </span>
         </div>
       )}
-    </section>
+
+      {error && <div className="err-line">{error}</div>}
+
+      {result && (
+        <div className={`receipt${result.success ? "" : " receipt--err"}`}>
+          <div className="receipt-head">
+            <p className="receipt-name">
+              <b>{result.success ? "broadcast" : "reverted"}</b>{" "}
+              <span style={{ color: "var(--ink-muted)" }}>by name</span>
+            </p>
+            <span className="receipt-stamp">
+              {result.success ? "ok" : "failed"}
+            </span>
+          </div>
+          <dl className="receipt-grid">
+            <dt>tx</dt>
+            <dd>
+              <a
+                href={`https://sepolia.etherscan.io/tx/${result.tx}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {result.tx}
+              </a>
+            </dd>
+            <dt>gas used</dt>
+            <dd>{Number(result.gasUsed).toLocaleString()}</dd>
+          </dl>
+        </div>
+      )}
+    </>
   );
+}
+
+function formatWei(wei: string): string {
+  try {
+    const v = BigInt(wei);
+    if (v === 0n) return "0 wei";
+    if (v < 1_000_000n) return `${v.toString()} wei`;
+    if (v < 10n ** 18n) return `${(Number(v) / 1e9).toFixed(4)} gwei`;
+    return `${(Number(v) / 1e18).toFixed(6)} ETH`;
+  } catch {
+    return wei;
+  }
 }
