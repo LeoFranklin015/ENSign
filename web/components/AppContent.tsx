@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import "../app/app.css";
 import {
   PARENT_NAME,
+  checkLabel,
   createPasskeyForLabel,
   registerName,
-  resolveLabel,
   verifyPasskey,
 } from "@/lib/ensign";
 import { getSession, saveSession } from "@/lib/session";
@@ -53,7 +53,12 @@ type Availability =
       state: "taken";
       label: string;
       account: `0x${string}`;
-      credentialId: string;
+      credentialId: string; // sign-in possible
+    }
+  | {
+      state: "occupied";
+      label: string;
+      account: `0x${string}`; // taken but no resolver — neither sign-up nor sign-in
     }
   | { state: "invalid"; reason: string };
 
@@ -101,14 +106,24 @@ export default function AppContent() {
     const timer = window.setTimeout(async () => {
       if (myCheck !== checkRef.current) return;
       try {
-        const r = await resolveLabel(label);
+        const status = await checkLabel(label);
         if (myCheck !== checkRef.current) return;
-        setAvail({
-          state: "taken",
-          label,
-          account: r.account,
-          credentialId: r.credentialId,
-        });
+        if (status.state === "free") {
+          setAvail({ state: "free", label });
+        } else if (status.hasResolver) {
+          setAvail({
+            state: "taken",
+            label,
+            account: status.account,
+            credentialId: status.credentialId,
+          });
+        } else {
+          setAvail({
+            state: "occupied",
+            label,
+            account: status.account,
+          });
+        }
       } catch {
         if (myCheck !== checkRef.current) return;
         setAvail({ state: "free", label });
@@ -195,12 +210,19 @@ export default function AppContent() {
             handler: onSignUp,
             enabled: true,
           }
-        : {
-            mode: "signup" as const,
-            label: "sign up with passkey",
-            handler: onSignUp,
-            enabled: false,
-          };
+        : avail.state === "occupied"
+          ? {
+              mode: "signup" as const,
+              label: "name unavailable",
+              handler: () => {},
+              enabled: false,
+            }
+          : {
+              mode: "signup" as const,
+              label: "sign up with passkey",
+              handler: onSignUp,
+              enabled: false,
+            };
 
   return (
     <div className="app-shell landing">
@@ -280,6 +302,13 @@ export default function AppContent() {
                         {label}.{PARENT_NAME}
                       </em>{" "}
                       is already minted · sign in with the passkey you bound to it.
+                    </>
+                  ) : avail.state === "occupied" ? (
+                    <>
+                      <em>
+                        {label}.{PARENT_NAME}
+                      </em>{" "}
+                      is registered but its resolver wasn't wired — pick a different label.
                     </>
                   ) : (
                     <>
@@ -416,7 +445,25 @@ function AvailabilityRow({ avail }: { avail: Availability }) {
       </div>
     );
   }
-  // taken
+  if (avail.state === "occupied") {
+    return (
+      <div className="avail avail--invalid">
+        <span className="avail-dot" />
+        <span>
+          minted to{" "}
+          <a
+            href={`https://sepolia.etherscan.io/address/${avail.account}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {avail.account.slice(0, 6)}…{avail.account.slice(-4)}
+          </a>
+          {" "}but the <strong>resolver isn't set</strong> — pick another
+        </span>
+      </div>
+    );
+  }
+  // taken (sign-in path)
   return (
     <div className="avail avail--taken">
       <span className="avail-dot" />

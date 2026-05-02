@@ -22,6 +22,9 @@ import {
   numberToHex,
   hexToBytes,
   bytesToHex,
+  keccak256,
+  toBytes,
+  type Address,
   type Hex,
 } from "viem";
 import {
@@ -332,6 +335,69 @@ function base64UrlToBytes(s: string): Uint8Array {
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
+}
+
+/// Storage proxy that holds the actual subname tokens (the canonical UserRegistry
+/// proxy that `looooo.eth` points at). Used for direct ownership checks when
+/// the resolver pointer hasn't been set yet.
+const STORAGE_REGISTRY: Address = "0x7caf267cF8DF169a583DDd22DbD95a58501C6d90";
+
+const storageRegistryAbi = parseAbi([
+  "function getTokenId(uint256) view returns (uint256)",
+  "function ownerOf(uint256) view returns (address)",
+]);
+
+export type LabelStatus =
+  | { state: "free" }
+  | { state: "taken"; account: `0x${string}`; hasResolver: true; credentialId: string }
+  | { state: "taken"; account: `0x${string}`; hasResolver: false; credentialId: null };
+
+/// Authoritative availability check for a label under PARENT_NAME.
+///
+/// Two on-chain paths to "taken":
+///   1. `resolveLabel` succeeds → resolver + records present → can sign in.
+///   2. `resolveLabel` fails (no resolver) BUT the storage proxy has the
+///      token minted → still taken, but the resolver was never wired so
+///      the user can't sign in. Picking it fresh would revert the wrapper
+///      with `LabelAlreadyRegistered`. Block it.
+export async function checkLabel(label: string): Promise<LabelStatus> {
+  // Path 1 — full resolution.
+  try {
+    const r = await resolveLabel(label);
+    return {
+      state: "taken",
+      account: r.account,
+      hasResolver: true,
+      credentialId: r.credentialId,
+    };
+  } catch {
+    // fall through
+  }
+
+  // Path 2 — storage-proxy ownership check.
+  try {
+    const labelHash = BigInt(keccak256(toBytes(label)));
+    const tokenId = (await publicClient.readContract({
+      address: STORAGE_REGISTRY,
+      abi: storageRegistryAbi,
+      functionName: "getTokenId",
+      args: [labelHash],
+    })) as bigint;
+    if (tokenId === 0n) return { state: "free" };
+    const owner = (await publicClient.readContract({
+      address: STORAGE_REGISTRY,
+      abi: storageRegistryAbi,
+      functionName: "ownerOf",
+      args: [tokenId],
+    })) as `0x${string}`;
+    if (owner === "0x0000000000000000000000000000000000000000") {
+      return { state: "free" };
+    }
+    return { state: "taken", account: owner, hasResolver: false, credentialId: null };
+  } catch {
+    // Token not minted (ownerOf reverts on unknown id).
+    return { state: "free" };
+  }
 }
 
 /// Prove ownership of a passkey by exercising it against a random challenge.
