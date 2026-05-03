@@ -5,11 +5,11 @@
  * Usage:
  *   const c = createPublicClient({ chain: sepolia, transport: http(...) });
  *   const addr = await resolveAddr("2.sugh101.eth", { client: c });
- *   const profile = await resolveProfile("leo.looooo.eth", { client: c });
+ *   const profile = await resolveProfile("leo.ensign.eth", { client: c });
  *
  * Why this exists: the canonical v2 staging UR routes through a CCIP gateway
  * whose on-chain proof verifier currently reverts for every v2 name (verified
- * across `looooo.eth` and `sugh101.eth`). Direct getSubregistry/getResolver
+ * across `ensign.eth` and `sugh101.eth`). Direct getSubregistry/getResolver
  * walks return correct data with no CCIP and no proof step.
  */
 
@@ -69,9 +69,9 @@ export async function walkRegistry(
 
   let current = ctx.rootRegistry ?? SEPOLIA_V2_ETH_REGISTRY;
 
-  // Walk from second-to-last label (e.g., "looooo") down to index 1.
-  // For "bot.leo.looooo.eth" → labels = ["bot","leo","looooo","eth"] →
-  //   walk "looooo", then "leo", landing in the registry that holds "bot".
+  // Walk from second-to-last label (e.g., "ensign") down to index 1.
+  // For "bot.leo.ensign.eth" → labels = ["bot","leo","ensign","eth"] →
+  //   walk "ensign", then "leo", landing in the registry that holds "bot".
   for (let i = labels.length - 2; i > 0; i--) {
     const label = labels[i];
     const next = (await ctx.client.readContract({

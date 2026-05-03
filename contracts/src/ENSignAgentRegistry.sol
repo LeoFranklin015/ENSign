@@ -164,7 +164,7 @@ contract ENSignAgentRegistry is EIP712, ReentrancyGuard {
     struct Permission {
         address account;        // The user's smart account
         address spender;        // The agent (any executable address)
-        bytes32 parentNode;     // namehash of the user's name (e.g., leo.looooo.eth)
+        bytes32 parentNode;     // namehash of the user's name (e.g., leo.ensign.eth)
         uint256 parentTokenId;  // user's tokenId in the parent storage registry
         string  label;          // agent label (e.g., "bot")
         uint48  start;

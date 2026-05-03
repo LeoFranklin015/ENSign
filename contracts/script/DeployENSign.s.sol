@@ -27,7 +27,7 @@ interface IVerifiableFactoryFull {
 ///   1. Canonical-impl `UserRegistry` proxy via `VerifiableFactory` (indexer-recognised).
 ///   2. `ENSignRegistry` developer-facing wrapper.
 ///   3. Grants `ROLE_REGISTRAR` to the wrapper on the storage registry.
-///   4. Re-points `looooo.eth`'s subregistry on the canonical `.eth` registry to the
+///   4. Re-points `ensign.eth`'s subregistry on the canonical `.eth` registry to the
 ///      storage registry (NOT the wrapper) so the indexer walks into a recognised impl.
 contract DeployENSign is Script {
     address internal constant FACTORY = 0xb9541BDD86C4D01C726A33694f14e8528AdCb20d;

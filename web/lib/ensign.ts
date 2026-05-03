@@ -2,7 +2,7 @@
 //
 // Source-of-truth model: ENS records, not browser storage.
 //
-//   name "alice" + parent "looooo.eth"
+//   name "alice" + parent "ensign.eth"
 //     → namehash → registry.addr(node) → JAW account address
 //     → JAW.ownerAtIndex(0)            → passkey public key (qx ‖ qy)
 //
@@ -259,9 +259,9 @@ function base64UrlToBytes(s: string): Uint8Array {
 }
 
 /// Storage proxy that holds the actual subname tokens (the canonical UserRegistry
-/// proxy that `looooo.eth` points at). Used for direct ownership checks when
+/// proxy that `ensign.eth` points at). Used for direct ownership checks when
 /// the resolver pointer hasn't been set yet.
-const STORAGE_REGISTRY: Address = "0x7caf267cF8DF169a583DDd22DbD95a58501C6d90";
+const STORAGE_REGISTRY: Address = "0x511b08f0358F042cA5cED53d7bd68F3f41cE740D";
 
 const storageRegistryAbi = parseAbi([
   "function getTokenId(uint256) view returns (uint256)",
