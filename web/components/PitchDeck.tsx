@@ -81,19 +81,64 @@ export default function PitchDeck() {
         <section ref={setRef(0)} id="cover" className="slide slide--cover">
           <CornerBrackets />
 
-          <div className="cover-stack">
-            <span className="cover-logo" style={setDelay(0)} aria-hidden="true">
-              <span className="cover-logo-glyph" />
-            </span>
-            <h1 className="cover-display" style={setDelay(160)}>
-              EN<em>S</em>ign
-            </h1>
-            <p className="cover-tag" style={setDelay(440)}>
-              your name <em>is</em> the wallet.
-            </p>
+          <div className="cover-grid">
+            <div className="cover-left">
+              <span className="cover-logo" style={setDelay(0)} aria-hidden="true">
+                <span className="cover-logo-glyph" />
+              </span>
+              <h1 className="cover-display" style={setDelay(160)}>
+                EN<em>S</em>ign
+              </h1>
+              <p className="cover-tag" style={setDelay(440)}>
+                your name <em>is</em> the wallet.
+              </p>
+            </div>
+
+            {/* product mockup — mirror of the actual /embed sign-in card */}
+            <aside
+              className="cover-mock"
+              style={setDelay(640)}
+              aria-hidden="true"
+            >
+              <div className="cover-mock-card">
+                <header className="cover-mock-bar">
+                  <div className="cover-mock-mark">
+                    <span className="cover-mock-mark-glyph" />
+                    <span>ENSign</span>
+                  </div>
+                  <span className="cover-mock-close">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                      <path d="M18 6 6 18" />
+                      <path d="m6 6 12 12" />
+                    </svg>
+                  </span>
+                </header>
+                <div className="cover-mock-body">
+                  <span className="cover-mock-eyebrow">connection request</span>
+                  <h3 className="cover-mock-title">Sign in with your name</h3>
+                  <p className="cover-mock-desc">
+                    Type the ENSign name you want to share with this site.
+                  </p>
+                  <div className="cover-mock-input">
+                    <span className="cover-mock-input-value">
+                      <span className="cover-mock-typewriter">leo</span>
+                      <span className="cover-mock-caret" />
+                    </span>
+                    <span className="cover-mock-input-suffix">.ensign.eth</span>
+                  </div>
+                  <button type="button" className="cover-mock-cta" tabIndex={-1}>
+                    <span>Continue</span>
+                    <span className="cover-mock-cta-arrow">→</span>
+                  </button>
+                </div>
+                <footer className="cover-mock-foot">
+                  Secured by <strong>ENSign</strong>
+                </footer>
+              </div>
+            </aside>
           </div>
 
-          <p className="slide-foot mono" style={setDelay(820)}>
+          <p className="slide-foot mono" style={setDelay(1080)}>
             scroll to begin ↓
           </p>
         </section>
