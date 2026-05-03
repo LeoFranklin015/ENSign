@@ -104,6 +104,31 @@ Both registries are verified on Etherscan. Browse the live subnames on the
 
 ---
 
+## Run the agent flow on-chain
+
+A Foundry script that demonstrates the full permission lifecycle against the
+live `ensign.eth` Sepolia stack (no UI needed). It registers a fresh user
+subname, grants a scoped agent permission, executes a token transfer through
+the manager, and prints the resulting ENS names so you can look them up on
+the explorer.
+
+```sh
+cd contracts
+export PRIVATE_KEY=0x...                     # EOA with REGISTRAR + Sepolia ETH for gas
+export SEPOLIA_RPC_URL=https://...           # any Sepolia RPC
+forge script script/PermissionDemo.s.sol:PermissionDemo \
+  --rpc-url $SEPOLIA_RPC_URL --broadcast --slow -vv
+```
+
+The script registers `perm<timestamp>.ensign.eth`, grants
+`bot.perm<timestamp>.ensign.eth` permission to call `transfer` on a freshly
+deployed DemoToken (capped at 100/day, valid 30 days), and submits one
+transfer through the manager. The on-chain validator checks target, selector,
+spend cap, expiry, and parent ownership before forwarding. Final balances and
+ENS explorer links are printed at the end.
+
+---
+
 ## Stack
 
 Foundry · Solidity 0.8.30 · Solady (`LibClone`, `WebAuthn`) ·
