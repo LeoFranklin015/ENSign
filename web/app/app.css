@@ -3485,14 +3485,18 @@
 /* ─── 01 · PROBLEM (split: copy + numbered flow) ─── */
 .problem-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1.05fr 1fr;
   gap: clamp(40px, 5vw, 80px);
   width: 100%;
-  align-items: start;
-  height: 100%;
-  max-height: calc(100vh - 200px);
+  align-items: center;
 }
-.problem-copy { display: flex; flex-direction: column; gap: 22px; padding-top: 8px; }
+.problem-copy { display: flex; flex-direction: column; gap: 18px; padding-top: 4px; }
+/* Slot the H2 and callout to a size that always fits inside one viewport */
+.slide--problem .slide-h2 { font-size: clamp(40px, 5.6vw, 76px); margin: 0; }
+.slide--problem .slide-tagline { font-size: clamp(18px, 1.9vw, 24px); color: var(--text-muted); margin: 0; max-width: 38ch; }
+.slide--problem .slide-lede { font-size: clamp(15px, 1.15vw, 17px); margin: 4px 0 0; }
+.slide--problem .slide-callout { font-size: clamp(20px, 2.2vw, 30px); margin: 16px 0 0; }
+.slide--problem .slide-eyebrow { margin: 0 0 14px; }
 
 .problem-flow {
   list-style: none;
@@ -3944,27 +3948,28 @@
   margin: 0;
 }
 
-/* PROBLEM — bigger, fewer, more spacious flow rows */
+/* PROBLEM — flow rows tuned to fit a single viewport without clipping */
+.problem-flow { gap: 8px; }
 .problem-flow li {
-  padding: 22px 28px;
-  gap: 24px;
+  padding: 14px 22px;
+  gap: 20px;
   border-radius: var(--r-md);
 }
 .flow-num {
-  width: 44px;
-  height: 44px;
-  font-size: 13px;
+  width: 36px;
+  height: 36px;
+  font-size: 12px;
 }
 .problem-flow strong {
-  font-size: 17px;
+  font-size: 15px;
   letter-spacing: -0.01em;
 }
 .flow-sub {
-  font-size: 12px;
-  margin-top: 4px;
+  font-size: 11.5px;
+  margin-top: 3px;
 }
 .problem-flow::before {
-  left: 33px;
+  left: 29px;
 }
 
 /* SOLUTION — typewriter on the mock input value */

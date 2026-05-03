@@ -153,17 +153,22 @@ export default function PitchDeck() {
                 // 01 · problem
               </span>
               <h2 className="slide-h2" style={setDelay(180)}>
-                to be <em>someone</em>,<br />
-                you need everything else <em>first</em>.
+                every site is a <em>name</em>.<br />
+                every wallet is still a <em>hash</em>.
               </h2>
-              <p className="slide-lede" style={setDelay(360)}>
-                Web3 onboarding takes <strong>six</strong> steps before a person
-                has an identity. Every step assumes the previous one is done —
-                and step zero (already on-chain) is the one most people don't
-                have.
+              <p className="slide-tagline" style={setDelay(280)}>
+                google.com isn't an IP, <em>leo.eth</em> shouldn't be a label.
+              </p>
+              <p className="slide-lede" style={setDelay(420)}>
+                DNS solved this in 1983 — to put a site online, you grab
+                <strong> acbcd.xyz</strong>; the IP is plumbing you never
+                see. Four decades later, web3 still leads with
+                <strong> 0xa742…f3d7</strong> — and the name shows up at
+                step five, as a sticker.
               </p>
               <p className="slide-callout" style={setDelay(1280)}>
-                identity should be <em>step one</em>, not step six.
+                to host a site: register <em>ensign.xyz</em>.<br />
+                to be on-chain: why not just pick <em>leo.eth</em>?
               </p>
             </div>
 
@@ -200,13 +205,13 @@ export default function PitchDeck() {
                 <span className="flow-num mono">05</span>
                 <div>
                   <strong>pay gas to register a name</strong>
-                  <span className="flow-sub mono">vitalik.eth costs ETH</span>
+                  <span className="flow-sub mono">leo.eth costs ETH</span>
                 </div>
               </li>
               <li style={setDelay(1020)}>
                 <span className="flow-num mono">06</span>
                 <div>
-                  <strong>finally — an identity</strong>
+                  <strong>finally — your name</strong>
                   <span className="flow-sub mono">five steps too late</span>
                 </div>
               </li>
