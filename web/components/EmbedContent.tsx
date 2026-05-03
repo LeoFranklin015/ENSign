@@ -18,6 +18,7 @@ import {
   PARENT_NAME,
   SEPOLIA_CHAIN_ID,
   bundlerUrl,
+  checkLabel,
   clientForChain,
   predictFactoryJaw,
   resolveLabel,
@@ -91,6 +92,53 @@ const PASSTHROUGH_BLOCKLIST = new Set([
   "wallet_getPermissions",
 ]);
 
+/// Translate a raw thrown error into a user-friendly message tailored for
+/// the embed's confined UI. Distinguishes WebAuthn cancel/missing/timeouts,
+/// bundler errors (AA codes), and generic network failures.
+function friendlyError(e: unknown): string {
+  const err = e as { name?: string; message?: string; shortMessage?: string };
+  const msg = err?.shortMessage ?? err?.message ?? String(e);
+
+  // WebAuthn surface — DOMException names from navigator.credentials.get().
+  if (err?.name === "NotAllowedError" || /cancelled|cancel/i.test(msg)) {
+    return "Passkey prompt cancelled. Try again when you're ready.";
+  }
+  if (err?.name === "AbortError") {
+    return "Passkey request timed out. Try again.";
+  }
+  if (err?.name === "InvalidStateError") {
+    return "This passkey isn't on this device. Use the device you registered with.";
+  }
+  if (err?.name === "SecurityError") {
+    return "Browser blocked the passkey prompt — this often means the page isn't on https or isn't on the registered origin.";
+  }
+
+  // Bundler / EntryPoint AA codes (best-effort string match).
+  if (/AA21/.test(msg)) {
+    return "Account doesn't have enough ETH at the EntryPoint to pay for this op.";
+  }
+  if (/AA22/.test(msg)) {
+    return "Operation expired before it landed. Try again.";
+  }
+  if (/AA23/.test(msg)) {
+    return "Account validation failed (signature or nonce). Try again — if it persists, the account may need a redeploy.";
+  }
+  if (/AA24/.test(msg)) {
+    return "Signature didn't match the expected hash. Try again.";
+  }
+  if (/AA31|AA33/.test(msg)) {
+    return "Paymaster rejected this op (likely policy budget exceeded). Switch to direct-pay or contact the operator.";
+  }
+  if (/insufficient funds/i.test(msg)) {
+    return "Not enough ETH on this account to cover the value.";
+  }
+  if (/network|fetch|ERR_NETWORK|ECONN/i.test(msg)) {
+    return "Network glitch — couldn't reach the chain. Retry in a moment.";
+  }
+
+  return msg;
+}
+
 function buildEthAccountsPermission(address: `0x${string}`) {
   return {
     parentCapability: "eth_accounts",
@@ -142,6 +190,27 @@ export default function Embed() {
     );
   }
 
+  // Detect: are we actually inside an iframe? If someone opened
+  // /embed directly in a tab the postMessage bridge has nowhere to go.
+  const [standalone, setStandalone] = useState(false);
+  useEffect(() => {
+    setStandalone(window.parent === window);
+  }, []);
+
+  // Tab close / navigate-away cleanup. If the user nukes the dApp while a
+  // request is pending, every dApp dangling on `await provider.request(...)`
+  // gets a clean rejection instead of hanging forever.
+  useEffect(() => {
+    function bail() {
+      if (pendingTx) respondError(pendingTx.req.id, 4001, "user dismissed wallet");
+      if (pendingSign) respondError(pendingSign.req.id, 4001, "user dismissed wallet");
+      if (needsAccountFor) respondError(needsAccountFor.id, 4001, "user dismissed wallet");
+    }
+    window.addEventListener("pagehide", bail);
+    return () => window.removeEventListener("pagehide", bail);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingTx, pendingSign, needsAccountFor]);
+
   // Boot: announce ready, register message listener.
   useEffect(() => {
     send(window.parent, { kind: "ready" });
@@ -186,6 +255,9 @@ export default function Embed() {
   }
 
   async function handleRpc(req: RpcRequest) {
+    // Stale error from a previous flow shouldn't leak into a fresh request.
+    setError(null);
+
     if (req.method === "eth_chainId") {
       respondResult(req.id, chainIdRef.current);
       return;
@@ -442,19 +514,62 @@ export default function Embed() {
 
   async function handleResolve() {
     setError(null);
-    if (!labelInput.match(/^[a-z0-9-]{1,32}$/)) {
-      setError("Type a registered label.");
+    const trimmed = labelInput.trim();
+    if (!trimmed) {
+      setError("Type a name first.");
       return;
     }
+    if (!trimmed.match(/^[a-z0-9-]{1,32}$/)) {
+      setError("Names use lowercase letters, digits, hyphens (1–32 chars).");
+      return;
+    }
+    let status: Awaited<ReturnType<typeof checkLabel>>;
     try {
       setBusy(true);
-      const r = await resolveLabel(labelInput);
-      // Pre-compute the factory-derived JAW address for Base Sepolia.
-      // (Same address would also work on any other chain that has the canonical
-      // JustanAccountFactory at 0x5803c076…, but for now we cap at Sepolia + Base.)
-      const baseAddr = await predictFactoryJaw(r.qx, r.qy, 0n, BASE_SEPOLIA_CHAIN_ID);
+      status = await checkLabel(trimmed);
+    } catch (e) {
+      setError(`Couldn't reach Sepolia: ${(e as Error).message}. Check your connection and retry.`);
+      setBusy(false);
+      return;
+    }
+
+    if (status.state === "free") {
+      setError(
+        `No name "${trimmed}.${PARENT_NAME}" is registered. Register it on ENSign first, then come back.`,
+      );
+      setBusy(false);
+      return;
+    }
+    if (status.state === "taken" && status.hasResolver === false) {
+      setError(
+        `"${trimmed}.${PARENT_NAME}" is reserved on-chain but has no resolver — it can't sign in. Pick a different name.`,
+      );
+      setBusy(false);
+      return;
+    }
+    if (status.state === "taken" && !status.credentialId) {
+      setError(
+        `"${trimmed}.${PARENT_NAME}" has no credential bound to it. Re-register or restore it on the main app.`,
+      );
+      setBusy(false);
+      return;
+    }
+
+    try {
+      // We have a healthy taken+resolver name. Pull the full record so we
+      // also have qx/qy for cross-chain factory address derivation.
+      const r = await resolveLabel(trimmed);
+      // Cross-chain factory derivation. If Base Sepolia RPC is flaky, we
+      // STILL want to let the user sign in on Sepolia — fall back gracefully.
+      let baseAddr: `0x${string}` = r.account;
+      try {
+        baseAddr = await predictFactoryJaw(r.qx, r.qy, 0n, BASE_SEPOLIA_CHAIN_ID);
+      } catch {
+        // Base derivation failed; user will only have a usable account on Sepolia.
+        // No-op — we still mount with the Sepolia address as the fallback.
+      }
       const acc: Account = {
-        label: labelInput,
+        label: trimmed,
         fullName: r.fullName,
         addresses: {
           [SEPOLIA_CHAIN_ID]: r.account,
@@ -499,7 +614,9 @@ export default function Embed() {
         }
       }
     } catch (e) {
-      setError((e as Error).message);
+      setError(
+        `Couldn't load account records: ${(e as Error).message}. Try again.`,
+      );
     } finally {
       setBusy(false);
     }
@@ -511,8 +628,22 @@ export default function Embed() {
     try {
       const chainId = parseInt(chainIdRef.current, 16);
       const client = clientForChain(chainId);
+      const accountAddr = addressForChain(account, chainId);
 
       setBusy(true);
+
+      // Pre-flight: if this is a value transfer, make sure the smart account
+      // can cover it. Catching here surfaces a clear message instead of an
+      // opaque AA21 / "execution reverted" downstream.
+      if (value > 0n) {
+        const balance = await client.getBalance({ address: accountAddr });
+        if (balance < value) {
+          throw new Error(
+            `Account balance (${balance} wei) is less than the transfer (${value} wei). Top up your wallet first.`,
+          );
+        }
+      }
+
       // Construct a viem SmartAccount tied to this label + chain. The adapter
       // pulls the passkey from ENS, picks the right per-chain JAW address, and
       // exposes encodeCalls / signUserOperation / signMessage / signTypedData.
@@ -543,7 +674,7 @@ export default function Embed() {
       setPendingTx(null);
       setVisible(false);
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e));
     } finally {
       setBusy(false);
     }
@@ -596,7 +727,7 @@ export default function Embed() {
       setPendingSign(null);
       setVisible(false);
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e));
     } finally {
       setBusy(false);
     }
@@ -707,6 +838,19 @@ export default function Embed() {
       </header>
 
       <main className="jc-stage">
+        {standalone && (
+          <section className="jc-banner jc-banner--warn">
+            This page is meant to be loaded inside a dApp via the ENSign
+            bookmarklet. Open any dApp tab and click the bookmark.
+          </section>
+        )}
+        {account && !RELAYABLE_CHAIN_IDS.has(activeChainId) && (
+          <section className="jc-banner jc-banner--warn">
+            ENSign can't relay transactions on this chain ({chainName}). Switch
+            to Sepolia or Base Sepolia in the dApp.
+          </section>
+        )}
+
         {needsAccountFor && !account && (
           <section className="jc-card" key="connect">
             <p className="jc-eyebrow">Connection request</p>
@@ -718,9 +862,12 @@ export default function Embed() {
               <input
                 placeholder="ricky"
                 value={labelInput}
-                onChange={(e) =>
-                  setLabelInput(e.target.value.toLowerCase().trim())
-                }
+                onChange={(e) => {
+                  // Typing means the user is having another go — wipe the
+                  // stale error so they're not staring at a red banner.
+                  if (error) setError(null);
+                  setLabelInput(e.target.value.toLowerCase().trim());
+                }}
                 autoFocus
                 disabled={busy}
                 spellCheck={false}
@@ -728,6 +875,16 @@ export default function Embed() {
               />
               <span className="jc-input-suffix">.{PARENT_NAME}</span>
             </label>
+            {error && /No name|register it/i.test(error) && (
+              <a
+                href={`${typeof window !== "undefined" ? window.location.origin : ""}/`}
+                target="_blank"
+                rel="noreferrer"
+                className="jc-cta-secondary"
+              >
+                Register on ENSign ↗
+              </a>
+            )}
           </section>
         )}
 
