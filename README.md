@@ -1,6 +1,9 @@
+
 # ENSign
 
 > Your ENS name is the wallet.
+
+<img width="1438" height="599" alt="Screenshot 2026-05-03 at 7 20 12 PM" src="https://github.com/user-attachments/assets/835e6a66-6de3-4a78-a32a-f0160c171094" />
 
 The address derives from the name, not the other way around. Pick a subname
 under `ensign.eth`, approve with Face ID, and one transaction later you have a
