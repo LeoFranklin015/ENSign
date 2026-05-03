@@ -100,23 +100,8 @@
 .brand-glyph {
   width: 22px;
   height: 22px;
-  position: relative;
   display: inline-block;
-}
-.brand-glyph::before,
-.brand-glyph::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 1.5px solid var(--acc);
-  border-radius: 2px;
-}
-.brand-glyph::before {
-  transform: rotate(45deg);
-}
-.brand-glyph::after {
-  border-color: var(--text);
-  opacity: 0.55;
+  background: url("/icon-mark.svg") center / contain no-repeat;
 }
 
 .brand-name {
