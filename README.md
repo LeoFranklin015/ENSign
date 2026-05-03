@@ -5,12 +5,13 @@
 
 <img width="1438" height="599" alt="Screenshot 2026-05-03 at 7 20 12 PM" src="https://github.com/user-attachments/assets/835e6a66-6de3-4a78-a32a-f0160c171094" />
 
+**Demo:** [ensign.app](https://ensign.app) · [pitch deck](https://ensign.app/pitch)
 
-The address derives from the name, not the other way around. Pick a subname
-under `ensign.eth`, approve with passkey, and one transaction later you have a
-passkey-controlled ERC-4337 smart account at a deterministic address — no seed
-phrase, no extension, no gas. The wallet doesn't exist independently of the
-name. The name *is* the wallet.
+Pick a subname under `ensign.eth`, approve with passkey, and one transaction
+later you have a passkey-controlled ERC-4337 smart account at a deterministic
+address. No seed phrase, no extension, no gas. The wallet doesn't exist
+independently of the name. The name *is* the wallet.
+
 
 Sign in to any dApp by typing your name. Spawn AI agents as sub-subnames with
 on-chain capabilities, revocable by ENS hierarchy.
@@ -19,19 +20,21 @@ on-chain capabilities, revocable by ENS hierarchy.
 
 ## The inversion
 
-Today every wallet starts as a hash. The name — if you bother — gets bolted on
-later as a label that points back at the address. DNS solved this in 1983: the
-name became the web, the IP became plumbing. Forty years on, web3 still leads
-with `0xa742…f3d7` and treats the name as decoration on a number.
+**The address derives from the name, not the other way around.**
 
-ENSign treats ENS V2 as the wallet itself.
+Today every wallet starts as a hash. The name, if you bother, gets bolted on
+later as a label that points back at the address. DNS solved this exact problem
+in 1983: names became the web, IPs became plumbing. Wallets never got that
+treatment. ENS V2 is what finally makes the name itself the foundation, not
+the decoration.
 
-|              | today                          | ensign                            |
-| ------------ | ------------------------------ | --------------------------------- |
-| primitive    | `0xa742…f3d7`                  | `leo.ensign.eth`                  |
-| identity     | a hash with a label            | the wallet itself                 |
-| delegation   | session keys, off-chain policy | recursive ENS subnames            |
-| revocation   | per-app, manual                | transfer or burn the parent name  |
+In ENSign, `leo.ensign.eth` is not a label on `0xa742…f3d7`. It's the other
+way around. The address is derived from the name. The passkey that signs for
+it lives inside the name's resolver record. The agent's permission record sits
+under the agent's subname. Every load-bearing piece of state is on-chain ENS
+data. There's no parallel database, no off-chain index, no signed-message
+theater. Delegation is a child subname. Revocation is transferring or burning
+the parent.
 
 ---
 
@@ -44,13 +47,13 @@ never sees ETH, never bridges, never installs anything.
 
 **Sign in anywhere.** A drag-to-bookmark bookmarklet injects a hosted sign-in
 iframe and an EIP-1193 provider shim into any page. Aave, Uniswap testnet,
-anything that calls `window.ethereum` sees a real EVM signer — behind it, the
+anything that calls `window.ethereum` sees a real EVM signer. Behind it, the
 ENSign smart account, signing userOps with the passkey and broadcasting
 through Pimlico. Your name is your sign-in across every dApp on every chain.
 
 **Delegate by name.** Grant `trader.leo.ensign.eth` permission to call
-`transfer` on USDC, capped at 10 per day, expiring in 7 days. The agent — a
-bot, an EOA, anything that can sign — submits its calls through the agent
+`transfer` on USDC, capped at 10 per day, expiring in 7 days. The agent (a
+bot, an EOA, anything that can sign) submits its calls through the agent
 registry, which validates the permission record on-chain before forwarding.
 Burn `leo.ensign.eth` and every agent under it loses authority in the same
 block.
@@ -82,7 +85,7 @@ policy server, no signed-message theater.
 Agent authority is enforced inside the smart contract by reading
 `parent.ownerOf()` on every call. The ENS hierarchy *is* the capability tree,
 not metadata on top of one. Revoking an agent is just transferring or burning
-its parent name — no separate revocation tx, no off-chain coordination.
+its parent name. No separate revocation tx, no off-chain coordination.
 
 ---
 
