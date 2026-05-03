@@ -5,15 +5,15 @@
 
 <img width="1438" height="599" alt="Screenshot 2026-05-03 at 7 20 12 PM" src="https://github.com/user-attachments/assets/835e6a66-6de3-4a78-a32a-f0160c171094" />
 
+
 The address derives from the name, not the other way around. Pick a subname
-under `ensign.eth`, approve with Face ID, and one transaction later you have a
+under `ensign.eth`, approve with passkey, and one transaction later you have a
 passkey-controlled ERC-4337 smart account at a deterministic address — no seed
 phrase, no extension, no gas. The wallet doesn't exist independently of the
 name. The name *is* the wallet.
 
 Sign in to any dApp by typing your name. Spawn AI agents as sub-subnames with
-on-chain capabilities, revocable by ENS hierarchy. ETHGlobal submission for
-**Most Creative Use of ENS** and **Best ENS Integration for AI Agents**.
+on-chain capabilities, revocable by ENS hierarchy.
 
 ---
 
