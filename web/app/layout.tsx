@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ENSign — your name is the wallet",
+  title: "ENSign - your name is the wallet",
   description: "Sign with ENS. Subname is the wallet. Subname is the agent.",
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
