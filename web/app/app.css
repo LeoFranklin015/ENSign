@@ -2415,11 +2415,12 @@
 .tree-title {
   margin: 0;
   font-family: var(--font-sans);
-  font-weight: 800;
-  font-size: clamp(36px, 5.6vw, 68px);
-  line-height: 0.96;
-  letter-spacing: -0.04em;
+  font-weight: 700;
+  font-size: clamp(28px, 3.6vw, 44px);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
   color: var(--text);
+  max-width: 22ch;
 }
 .tree-title em {
   font-style: normal;

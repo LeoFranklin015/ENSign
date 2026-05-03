@@ -4,10 +4,10 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 /// Animated hierarchy diagram for the landing page.
 ///
-///                  looooo.eth                          ← parent (ENS V2)
+///                  ensign.eth                          ← parent (ENS V2)
 ///              ┌────────┴────────┐
 ///              ▼                 ▼
-///       leo.looooo.eth     alice.looooo.eth            ← wallets (siblings)
+///       leo.ensign.eth     alice.ensign.eth            ← wallets (siblings)
 ///              │                                         (alice has no agents)
 ///        ┌─────┼─────┐
 ///        ▼     ▼     ▼
@@ -48,12 +48,12 @@ export function HierarchyTree() {
       <header className="tree-head">
         <p className="kicker">hierarchy</p>
         <h2 className="tree-title">
-          one name,<br />
-          infinite <em>delegation</em>.
+          what <em>ENS V2</em> unlocks.
         </h2>
         <p className="tree-sub">
-          ENS subnames cascade. Your name is the wallet — its subnames are
-          agents with on-chain permissions, scoped and revocable.
+          ENS V2 gives every name its own registry of subnames. We turn each
+          subname into a smart account — and each smart account into a parent
+          of its own agent subnames. Hierarchy is the permission system.
         </p>
       </header>
 
@@ -63,7 +63,7 @@ export function HierarchyTree() {
           <article className="tree-node tree-node--parent" style={setDelay(0)}>
             <span className="tree-node-eyebrow">// ens v2 root</span>
             <h3 className="tree-node-name">
-              looooo<em>.eth</em>
+              ensign<em>.eth</em>
             </h3>
             <span className="tree-node-meta mono">parent registry</span>
           </article>
@@ -89,7 +89,7 @@ export function HierarchyTree() {
           >
             <span className="tree-node-eyebrow">// your wallet</span>
             <h3 className="tree-node-name">
-              leo<em>.looooo.eth</em>
+              leo<em>.ensign.eth</em>
             </h3>
             <span className="tree-node-meta mono">
               0xceF0…F3c7 · smart account
@@ -107,7 +107,7 @@ export function HierarchyTree() {
           >
             <span className="tree-node-eyebrow">// sibling wallet</span>
             <h3 className="tree-node-name">
-              alice<em>.looooo.eth</em>
+              alice<em>.ensign.eth</em>
             </h3>
             <span className="tree-node-meta mono">
               0x91A2…b3d4 · smart account
@@ -156,7 +156,7 @@ export function HierarchyTree() {
         <div className="tree-tier tree-tier--agents">
             <article className="tree-node tree-node--agent" style={setDelay(1380)}>
               <span className="tree-node-eyebrow">// agent</span>
-              <h3 className="tree-node-name">trader<em>.leo.looooo.eth</em></h3>
+              <h3 className="tree-node-name">trader<em>.leo.ensign.eth</em></h3>
               <ul className="tree-perm-list">
                 <li>
                   <span>target</span>
@@ -178,7 +178,7 @@ export function HierarchyTree() {
 
             <article className="tree-node tree-node--agent" style={setDelay(1500)}>
               <span className="tree-node-eyebrow">// agent</span>
-              <h3 className="tree-node-name">dca<em>.leo.looooo.eth</em></h3>
+              <h3 className="tree-node-name">dca<em>.leo.ensign.eth</em></h3>
               <ul className="tree-perm-list">
                 <li>
                   <span>target</span>
@@ -200,7 +200,7 @@ export function HierarchyTree() {
 
             <article className="tree-node tree-node--agent" style={setDelay(1620)}>
               <span className="tree-node-eyebrow">// agent</span>
-              <h3 className="tree-node-name">swap<em>.leo.looooo.eth</em></h3>
+              <h3 className="tree-node-name">swap<em>.leo.ensign.eth</em></h3>
               <ul className="tree-perm-list">
                 <li>
                   <span>target</span>
