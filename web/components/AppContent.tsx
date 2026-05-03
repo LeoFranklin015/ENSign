@@ -14,6 +14,7 @@ import {
 import { getSession, saveSession } from "@/lib/session";
 import { Nav } from "@/components/Nav";
 import { MultiStepLoader, type Step } from "@/components/MultiStepLoader";
+import { HierarchyTree } from "@/components/HierarchyTree";
 
 const SIGNUP_STEPS: Step[] = [
   {
@@ -407,6 +408,8 @@ export default function AppContent() {
           </aside>
         </aside>
       </main>
+
+      <HierarchyTree />
 
       <footer className="foot">
         <span className="brand-name">

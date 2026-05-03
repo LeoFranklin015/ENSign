@@ -2379,3 +2379,467 @@
   font-size: 11px;
   opacity: 0.7;
 }
+
+/* ─────────────────────────────────────────────────────
+   Hierarchy tree (landing — "one name, infinite delegation")
+   ───────────────────────────────────────────────────── */
+
+.tree-section {
+  position: relative;
+  z-index: 1;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 120px 28px 100px;
+  border-top: 1px solid var(--line);
+}
+.tree-section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60vw 38vh at 50% 28%, rgba(184, 255, 58, 0.05), transparent 70%);
+  z-index: -1;
+}
+
+.tree-head {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 64px;
+}
+.tree-head .kicker { color: var(--acc); }
+
+.tree-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: clamp(36px, 5.6vw, 68px);
+  line-height: 0.96;
+  letter-spacing: -0.04em;
+  color: var(--text);
+}
+.tree-title em {
+  font-style: normal;
+  color: var(--acc);
+}
+
+.tree-sub {
+  margin: 0;
+  max-width: 56ch;
+  font-size: 15.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.tree-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.tree-tier {
+  display: flex;
+  justify-content: center;
+}
+.tree-tier--agents {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+/* Connectors (vertical line + branch) ─────────────── */
+.tree-line {
+  position: relative;
+  width: 4px;
+  height: 60px;
+  margin: -1px 0;
+  color: var(--acc);
+}
+.tree-line svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.tree-branch {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  height: 90px;
+  margin: -1px 0;
+  color: var(--acc);
+}
+.tree-branch svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.tree-line-path {
+  fill: none;
+  stroke: rgba(184, 255, 58, 0.45);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  pathLength: 1;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+/* Reveal — controlled by .tree--in on the section ───── */
+.tree--in .tree-line-path {
+  animation: treeDraw 700ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes treeDraw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Pulse traveling along the parent → wallet stem ──── */
+.tree-line-pulse {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--acc);
+  box-shadow: 0 0 12px var(--acc-glow), 0 0 4px var(--acc);
+  transform: translate(-50%, 0);
+  opacity: 0;
+  pointer-events: none;
+}
+.tree--in .tree-line-pulse {
+  animation: treePulseDown 2.6s ease-in-out 1.6s infinite;
+}
+@keyframes treePulseDown {
+  0%   { opacity: 0; top: 0; }
+  10%  { opacity: 1; }
+  85%  { opacity: 1; top: calc(100% - 6px); }
+  100% { opacity: 0; top: calc(100% - 6px); }
+}
+
+/* Pulses traveling down each wallet → agent branch ─ */
+.tree-branch-pulse {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--acc);
+  box-shadow: 0 0 12px var(--acc-glow), 0 0 4px var(--acc);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+}
+.tree-branch-pulse--a { left: calc(100% / 6); }
+.tree-branch-pulse--b { left: 50%; }
+.tree-branch-pulse--c { left: calc(5 * 100% / 6); }
+
+.tree--in .tree-branch-pulse {
+  animation: treeBranchPulse 2.8s ease-in-out infinite;
+}
+.tree--in .tree-branch-pulse--a { animation-delay: 2.2s; }
+.tree--in .tree-branch-pulse--b { animation-delay: 2.45s; }
+.tree--in .tree-branch-pulse--c { animation-delay: 2.7s; }
+@keyframes treeBranchPulse {
+  0%   { opacity: 0; top: 0; }
+  10%  { opacity: 1; }
+  85%  { opacity: 1; top: 100%; }
+  100% { opacity: 0; top: 100%; }
+}
+
+/* Cards ─────────────────────────────────────────────── */
+.tree-node {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 240px;
+  opacity: 0;
+  transform: translateY(12px) scale(0.985);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.tree--in .tree-node {
+  animation: treeRise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes treeRise {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.tree-node:hover {
+  border-color: var(--line-bright);
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 1px rgba(184, 255, 58, 0.12), 0 18px 40px -12px rgba(0, 0, 0, 0.5);
+}
+
+.tree-node-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: lowercase;
+  color: var(--text-faint);
+}
+
+.tree-node-name {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.tree-node-name em {
+  font-style: normal;
+  color: var(--acc);
+  font-weight: 700;
+}
+
+.tree-node-meta {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  letter-spacing: 0;
+}
+
+/* Tier-specific accents */
+.tree-node--parent {
+  background: linear-gradient(180deg, rgba(184, 255, 58, 0.04), transparent), var(--surface);
+  border-color: rgba(184, 255, 58, 0.18);
+}
+.tree-node--wallet {
+  min-width: 320px;
+  background:
+    linear-gradient(180deg, rgba(184, 255, 58, 0.06), transparent 70%),
+    var(--surface);
+  border-color: rgba(184, 255, 58, 0.28);
+  box-shadow: 0 0 0 1px rgba(184, 255, 58, 0.06), 0 24px 60px -24px var(--acc-glow);
+}
+.tree-node--agent {
+  padding: 14px 16px;
+  min-width: 0;
+}
+.tree-node--agent .tree-node-name { font-size: 18px; }
+
+/* Tags inside the wallet card ───────────────────────── */
+.tree-node-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.tree-tag {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(184, 255, 58, 0.22);
+  background: rgba(184, 255, 58, 0.06);
+  color: var(--acc);
+}
+
+/* Permission list inside agent cards ────────────────── */
+.tree-perm-list {
+  list-style: none;
+  margin: 6px 0 8px;
+  padding: 8px 10px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tree-perm-list li {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.tree-perm-list li code {
+  color: var(--text-soft);
+}
+
+.tree-node-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.tree-node-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--acc);
+  box-shadow: 0 0 0 0 var(--acc-glow);
+  animation: treeDot 1.6s ease-in-out infinite;
+}
+@keyframes treeDot {
+  0%, 100% { box-shadow: 0 0 0 0 var(--acc-glow); }
+  50%      { box-shadow: 0 0 0 6px transparent; }
+}
+.tree-node-status--active { color: var(--acc); }
+
+/* Footer line under the diagram ─────────────────────── */
+.tree-foot {
+  margin: 56px 0 0;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+/* Responsive — agents stack on narrow viewports ─────── */
+@media (max-width: 720px) {
+  .tree-section { padding: 96px 20px 72px; }
+  .tree-tier--agents {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .tree-branch { display: none; }
+  .tree-node--wallet { min-width: 0; width: 100%; }
+}
+
+/* ─────────────────────────────────────────────────────
+   Hierarchy tree — two-wallet branching
+   ───────────────────────────────────────────────────── */
+
+.tree-wallets-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+}
+.tree-wallets-row .tree-node {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Alice: slightly muted to read as "no children" */
+.tree-node--wallet-quiet {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  box-shadow: none;
+}
+.tree-node--wallet-quiet .tree-node-name em { color: var(--text-soft); }
+.tree-tag--quiet {
+  border-color: var(--line-strong);
+  background: var(--bg-2);
+  color: var(--text-muted);
+}
+
+/* Sub-lineage column (offset to left half so it sits under leo) */
+.tree-sublineage {
+  width: 50%;
+  max-width: 380px;
+  margin-right: auto;
+  margin-left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Inside sub-lineage, the agent grid is 3 columns within the half-width.
+   We let it overflow the half-width container slightly so each agent has
+   breathing room — fans visibly outward from leo. */
+.tree-sublineage .tree-tier--agents {
+  width: 165%;
+  margin-left: -12%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+/* Pulses for the parent → 2-wallet branch.
+   Coordinates within the SVG's 600×90 viewBox: drop columns at x=180 and x=420
+   → 30% and 70% of width. */
+.tree-branch-pulse--two-l {
+  left: 30%;
+}
+.tree-branch-pulse--two-r {
+  left: 70%;
+}
+.tree--in .tree-branch-pulse--two-l { animation: treeBranchPulse 2.6s ease-in-out 1.4s infinite; }
+.tree--in .tree-branch-pulse--two-r { animation: treeBranchPulse 2.6s ease-in-out 1.55s infinite; }
+
+@media (max-width: 720px) {
+  .tree-wallets-row { grid-template-columns: 1fr; gap: 18px; }
+  .tree-sublineage {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .tree-sublineage .tree-tier--agents {
+    width: 100%;
+    margin-left: 0;
+    grid-template-columns: 1fr;
+  }
+  .tree-branch--two { display: none; }
+}
+
+/* ─── Hierarchy tree — fixes for full-width branching layout ─── */
+
+/* Wallets row: explicit minmax(0, 1fr) so cards never push the grid to
+   single-column. min-width on the wallet card was forcing a wrap. */
+.tree-wallets-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  max-width: 880px;
+}
+.tree-wallets-row .tree-node--wallet {
+  min-width: 0;
+}
+
+/* Sub-lineage container is gone. Agents now sit directly under the wallets
+   row at full stage width. Override the earlier `.tree-sublineage`-scoped
+   tier rule so we don't end up with a half-width agents grid. */
+.tree-stage > .tree-tier--agents {
+  width: 100%;
+  max-width: 1080px;
+  margin-left: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+/* The curved fan from leo to the 3 agents — wider than the regular
+   tree-branch since it spans the full agent row. */
+.tree-branch--leo {
+  width: 100%;
+  max-width: 1080px;
+  height: 110px;
+}
+
+/* Pulses on the leo→agents branch ride a path that curves, not a straight
+   vertical line. Drop them to fade-in dots at the endpoints rather than
+   travelling spans (which would only move vertically and miss the curve). */
+.tree-branch--leo .tree-branch-pulse {
+  top: calc(100% - 10px);
+}
+.tree--in .tree-branch--leo .tree-branch-pulse {
+  animation: treeArrivePulse 2.6s ease-out infinite;
+}
+.tree--in .tree-branch--leo .tree-branch-pulse--a { animation-delay: 2.2s; }
+.tree--in .tree-branch--leo .tree-branch-pulse--b { animation-delay: 2.45s; }
+.tree--in .tree-branch--leo .tree-branch-pulse--c { animation-delay: 2.7s; }
+@keyframes treeArrivePulse {
+  0%, 60%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  70%       { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  85%       { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100%      { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+}
