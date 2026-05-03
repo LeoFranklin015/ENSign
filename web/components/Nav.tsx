@@ -91,6 +91,15 @@ export function Nav() {
       )}
 
       <div className="bar-right">
+        {/* Pitch link — only on landing (no session). */}
+        {!label && (
+          <Link
+            href="/pitch"
+            className={`nav-pitch${pathname === "/pitch" ? " nav-pitch--active" : ""}`}
+          >
+            pitch ↗
+          </Link>
+        )}
         {label ? (
           <div className="nav-id" ref={popRef}>
             <button
