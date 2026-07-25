@@ -85,4 +85,32 @@ contract ZkEmailForkIntegrationTest is Test {
         );
         assertFalse(okDirect, "expected the Ownable(msg.sender).owner() gotcha");
     }
+
+    /// @dev THE make-or-break check for real email recovery: the live registry
+    ///      must return true for gmail.com's real DKIM key when queried the way
+    ///      our provider queries it (from a contract exposing `owner()`).
+    function test_fork_realGmailDKIMKeyIsValidForOurProvider() public {
+        DKIMProbe probe = new DKIMProbe(DKIM_REGISTRY, address(0xBEEF));
+        bool valid = probe.check(
+            "gmail.com",
+            0x0ea9c777dc7110e5a9e89b13f0cfc540e3845ba120b2b6dc24024d61488d4788
+        );
+        assertTrue(valid, "gmail.com DKIM key not usable: email recovery would fail closed");
+    }
+}
+
+/// @dev Minimal `Ownable`-shaped caller, mirroring how our provider presents
+///      itself to `UserOverrideableDKIMRegistry`.
+contract DKIMProbe {
+    address public immutable registry;
+    address public immutable owner;
+
+    constructor(address _registry, address _owner) {
+        registry = _registry;
+        owner = _owner;
+    }
+
+    function check(string calldata domain, bytes32 pkHash) external view returns (bool) {
+        return IDKIMRegistry(registry).isDKIMPublicKeyHashValid(domain, pkHash);
+    }
 }

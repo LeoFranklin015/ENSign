@@ -32,6 +32,8 @@ const ECDSA_PROVIDER = (process.env.NEXT_PUBLIC_ECDSA_PROVIDER ??
   "0x97F9EFfAF5399a637b98359cda3cBf7493a0Ebf5") as Address;
 const ZKEMAIL_PROVIDER = (process.env.NEXT_PUBLIC_ZKEMAIL_PROVIDER ??
   "0x3AB8722fb2abF3875560c9bd4C3c932dEeF50397") as Address;
+/// zkEmail's DKIM registry on Sepolia — the one our provider verifies against.
+const ZK_DKIM_REGISTRY = "0x3D3935B3C030893f118a84C92C66dF1B9E4169d6";
 
 const PROVIDER_NAMES: Record<string, string> = {
   [ENS_PROVIDER.toLowerCase()]: "ENSRecoveryProvider",
@@ -129,7 +131,87 @@ async function deriveAccountSalt(emailAddress: string, accountCode: Hex): Promis
 
 const zkProviderAbi = parseAbi([
   "function expectedCommand(address account, uint256 nonce, bytes subject) pure returns (string)",
+  "function recoveryHash(address account, uint256 nonce, bytes subject) pure returns (bytes32)",
 ]);
+
+const RELAYER = "https://relayer.zk.email/api";
+
+/// The relayer's template must render to exactly what the provider expects.
+const COMMAND_TEMPLATE = "Recover account {ethAddr} using recovery hash {string}";
+
+type EmailProofJson = {
+  domainName: string;
+  publicKeyHash: Hex;
+  timestamp: number | string;
+  maskedCommand: string;
+  emailNullifier: Hex;
+  accountSalt: Hex;
+  isCodeExist: boolean;
+  proof: Hex;
+};
+
+/// Ask the relayer to email the guardian. It returns a request id to poll.
+async function relayerSubmit(body: Record<string, unknown>): Promise<string> {
+  const res = await fetch(`${RELAYER}/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`relayer ${res.status}: ${text.slice(0, 200)}`);
+  const json = JSON.parse(text) as { id?: string };
+  if (!json.id) throw new Error(`relayer returned no request id: ${text.slice(0, 160)}`);
+  return json.id;
+}
+
+/// Poll until the guardian has replied and the proof has been generated.
+/// The relayer hands the proof back rather than broadcasting it, which is what
+/// lets our own provider verify it.
+async function relayerStatus(id: string): Promise<{
+  status: string;
+  proof?: EmailProofJson;
+}> {
+  const res = await fetch(`${RELAYER}/status/${id}`);
+  const text = await res.text();
+  if (!res.ok) throw new Error(`relayer ${res.status}: ${text.slice(0, 200)}`);
+  const json = JSON.parse(text) as {
+    request?: { status?: string };
+    response?: { proof?: EmailProofJson } | null;
+  };
+  return {
+    status: json.request?.status ?? "Unknown",
+    proof: json.response?.proof,
+  };
+}
+
+/// ABI-encode an EmailProof exactly as `ZkEmailRecoveryProvider.verify` decodes it.
+function encodeEmailProof(p: EmailProofJson): Hex {
+  return encodeAbiParameters(
+    [{
+      type: "tuple",
+      components: [
+        { name: "domainName", type: "string" },
+        { name: "publicKeyHash", type: "bytes32" },
+        { name: "timestamp", type: "uint256" },
+        { name: "maskedCommand", type: "string" },
+        { name: "emailNullifier", type: "bytes32" },
+        { name: "accountSalt", type: "bytes32" },
+        { name: "isCodeExist", type: "bool" },
+        { name: "proof", type: "bytes" },
+      ],
+    }],
+    [{
+      domainName: p.domainName,
+      publicKeyHash: p.publicKeyHash,
+      timestamp: BigInt(p.timestamp),
+      maskedCommand: p.maskedCommand,
+      emailNullifier: p.emailNullifier,
+      accountSalt: p.accountSalt,
+      isCodeExist: p.isCodeExist,
+      proof: p.proof,
+    }],
+  );
+}
 
 export default function RecoveryContent() {
   const [account, setAccount] = useState<Address | null>(null);
@@ -155,6 +237,8 @@ export default function RecoveryContent() {
   const [accountCode, setAccountCode] = useState<Hex | null>(null);
   const [emailProofJson, setEmailProofJson] = useState("");
   const [emailCommand, setEmailCommand] = useState<string | null>(null);
+  const [emailStatus, setEmailStatus] = useState<string | null>(null);
+  const [emailRequestId, setEmailRequestId] = useState<string | null>(null);
 
   // recovery form
   const [targetAccount, setTargetAccount] = useState("");
@@ -275,6 +359,84 @@ export default function RecoveryContent() {
       if (ok) setNote(`email guardian registered — SAVE this account code: ${code}`);
     } catch (e) {
       setErr(`add email guardian failed: ${(e as Error).message}`);
+    } finally { setBusy(null); }
+  }
+
+  /**
+   * The full email-guardian approval loop: ask the relayer to email the
+   * guardian with our command, wait for them to reply, then take the proof it
+   * returns and attach it as an approval.
+   */
+  async function requestEmailApproval(r: Recovery) {
+    if (!newKey) { setErr("generate the new passkey first"); return; }
+    if (!accountCode) {
+      setErr("paste the account code you saved when registering this email guardian");
+      return;
+    }
+    const target = (targetAccount || account) as Address;
+    setBusy("email approval"); setErr(null);
+    try {
+      const [, domain] = decodeAbiParameters(
+        [{ type: "bytes32" }, { type: "string" }], r.commitment,
+      ) as [Hex, string];
+      const subject = encodeAbiParameters(
+        [{ type: "bytes32" }, { type: "bytes32" }], [newKey.qx, newKey.qy],
+      );
+      const currentNonce = await publicClient.readContract({
+        address: MANAGER, abi: managerAbi, functionName: "recoveryNonce", args: [target],
+      }) as bigint;
+      const hash = await publicClient.readContract({
+        address: ZKEMAIL_PROVIDER, abi: zkProviderAbi,
+        functionName: "recoveryHash", args: [target, currentNonce, subject],
+      }) as Hex;
+
+      setEmailStatus("sending email…");
+      const id = await relayerSubmit({
+        dkimContractAddress: ZK_DKIM_REGISTRY,
+        accountCode,
+        codeExistsInEmail: true,
+        commandTemplate: COMMAND_TEMPLATE,
+        commandParams: [target, hash],
+        templateId: "0x1",
+        emailAddress: guardianEmail.trim() || `guardian@${domain}`,
+        subject: `Approve recovery of ${label || "your ENSign account"}`,
+        body: `Reply to this email to approve installing a new passkey on ${target}.`,
+        // Only used for the relayer's own DKIM bookkeeping; the proof itself is
+        // chain-agnostic and we verify it against Sepolia's registry.
+        chain: "baseSepolia",
+      });
+      setEmailRequestId(id);
+      setEmailStatus("email sent — reply to it, then this will pick up the proof");
+
+      // Poll until the guardian replies and the proof is generated.
+      for (let i = 0; i < 240; i++) {
+        await new Promise((r2) => setTimeout(r2, 5000));
+        const { status, proof } = await relayerStatus(id);
+        setEmailStatus(`relayer: ${status}`);
+        if (proof) {
+          const recoveryId = keccak256(
+            encodeAbiParameters(
+              [{ type: "address" }, { type: "address" }, { type: "bytes" }],
+              [target, r.provider, r.commitment],
+            ),
+          );
+          setSigs((prev) =>
+            prev.some((s) => s.recoveryId === recoveryId)
+              ? prev
+              : [...prev, {
+                  recoveryId,
+                  proof: encodeEmailProof(proof),
+                  signer: `email @${proof.domainName}`,
+                }]);
+          setEmailStatus(`proof received — "${proof.maskedCommand}"`);
+          return;
+        }
+        if (status === "Failed") throw new Error("relayer reported failure");
+      }
+      throw new Error("timed out waiting for the reply (20 min)");
+    } catch (e) {
+      setErr(`email approval failed: ${(e as Error).message}`);
+      setEmailStatus(null);
     } finally { setBusy(null); }
   }
 
@@ -538,6 +700,9 @@ export default function RecoveryContent() {
   }
 
   const ready = executeAt > 0 && now >= executeAt;
+  const emailGuardians = recoveries.filter(
+    (r) => r.provider.toLowerCase() === ZKEMAIL_PROVIDER.toLowerCase(),
+  );
 
   return (
     <>
@@ -684,28 +849,67 @@ export default function RecoveryContent() {
 
             <div className="ag-field">
               <label className="ag-field-label">2b · approve by email (zkEmail)</label>
-              <div className="ag-row">
-                <button className="action" disabled={!!busy || !newKey} onClick={showEmailCommand}>
-                  Show command to email
-                </button>
-              </div>
-              {emailCommand && (
-                <p className="ag-hint mono">
-                  The guardian&apos;s email body must authorize exactly:<br />
-                  <strong>{emailCommand}</strong>
-                </p>
+
+              {emailGuardians.length === 0 && (
+                <p className="ag-hint mono">no email guardians registered</p>
               )}
-              <textarea
-                className="ag-input mono" rows={4}
-                placeholder='paste EmailProof JSON from the relayer/prover: {"domainName":"gmail.com","publicKeyHash":"0x…","timestamp":…,"maskedCommand":"Recover account 0x… using recovery hash 0x…","emailNullifier":"0x…","accountSalt":"0x…","isCodeExist":true,"proof":"0x…"}'
-                value={emailProofJson} onChange={(e) => setEmailProofJson(e.target.value)}
-              />
-              <button
-                className="action" disabled={!!busy || !emailProofJson.trim()}
-                onClick={attachEmailProof}
-              >
-                Attach email proof
-              </button>
+
+              {emailGuardians.length > 0 && (
+                <>
+                  <div className="ag-row">
+                    <input
+                      className="ag-input mono"
+                      placeholder="account code saved at registration (0x…64 hex)"
+                      value={accountCode ?? ""}
+                      onChange={(e) => setAccountCode(e.target.value.trim() as Hex)}
+                    />
+                  </div>
+                  <div className="ag-row">
+                    <input
+                      className="ag-input mono" placeholder="guardian email"
+                      value={guardianEmail} onChange={(e) => setGuardianEmail(e.target.value)}
+                    />
+                    <button
+                      className="action"
+                      disabled={!!busy || !newKey || !accountCode}
+                      onClick={() => requestEmailApproval(emailGuardians[0])}
+                    >
+                      {busy === "email approval" ? "waiting…" : "Send approval email"}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {emailStatus && <p className="ag-hint mono">{emailStatus}</p>}
+              {emailRequestId && (
+                <p className="ag-hint mono">request {emailRequestId}</p>
+              )}
+
+              <details>
+                <summary className="ag-hint mono">manual: paste a proof instead</summary>
+                <div className="ag-row">
+                  <button className="action" disabled={!!busy || !newKey} onClick={showEmailCommand}>
+                    Show command
+                  </button>
+                </div>
+                {emailCommand && (
+                  <p className="ag-hint mono">
+                    the email must authorize exactly:<br />
+                    <strong>{emailCommand}</strong>
+                  </p>
+                )}
+                <textarea
+                  className="ag-input mono" rows={4}
+                  placeholder='paste EmailProof JSON {"domainName":"gmail.com",…}'
+                  value={emailProofJson} onChange={(e) => setEmailProofJson(e.target.value)}
+                />
+                <button
+                  className="action" disabled={!!busy || !emailProofJson.trim()}
+                  onClick={attachEmailProof}
+                >
+                  Attach email proof
+                </button>
+              </details>
             </div>
 
             <div className="ag-row">
