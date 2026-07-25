@@ -134,10 +134,12 @@ const zkProviderAbi = parseAbi([
   "function recoveryHash(address account, uint256 nonce, bytes subject) pure returns (bytes32)",
 ]);
 
-/// zkEmail relayer. The hosted one at relayer.zk.email currently 404s on its
-/// own prover backend, so point this at a self-hosted instance to complete the
-/// email flow: NEXT_PUBLIC_ZKEMAIL_RELAYER=http://your-host:8000/api
-const RELAYER = process.env.NEXT_PUBLIC_ZKEMAIL_RELAYER ?? "https://relayer.zk.email/api";
+/// zkEmail relayer — OPTIONAL. It only automates sending the guardian's email
+/// and polling for the reply; the hosted one at relayer.zk.email currently 404s
+/// on its own prover backend. With just a prover (PROVER_URL, server-side) the
+/// .eml upload path below does the same job without any mail infrastructure.
+const RELAYER = process.env.NEXT_PUBLIC_ZKEMAIL_RELAYER ?? "";
+const HAS_RELAYER = RELAYER.length > 0;
 
 /// The relayer's template must render to exactly what the provider expects.
 const COMMAND_TEMPLATE = "Recover account {ethAddr} using recovery hash {string}";
@@ -929,19 +931,23 @@ export default function RecoveryContent() {
                       onChange={(e) => setAccountCode(e.target.value.trim() as Hex)}
                     />
                   </div>
-                  <div className="ag-row">
-                    <input
-                      className="ag-input mono" placeholder="guardian email"
-                      value={guardianEmail} onChange={(e) => setGuardianEmail(e.target.value)}
-                    />
-                    <button
-                      className="action"
-                      disabled={!!busy || !newKey || !accountCode}
-                      onClick={() => requestEmailApproval(emailGuardians[0])}
-                    >
-                      {busy === "email approval" ? "waiting…" : "Send approval email"}
-                    </button>
-                  </div>
+                  {/* Only offer the relayer path when one is actually configured —
+                      otherwise this silently calls the dead hosted service. */}
+                  {HAS_RELAYER && (
+                    <div className="ag-row">
+                      <input
+                        className="ag-input mono" placeholder="guardian email"
+                        value={guardianEmail} onChange={(e) => setGuardianEmail(e.target.value)}
+                      />
+                      <button
+                        className="action"
+                        disabled={!!busy || !newKey || !accountCode}
+                        onClick={() => requestEmailApproval(emailGuardians[0])}
+                      >
+                        {busy === "email approval" ? "waiting…" : "Send approval email"}
+                      </button>
+                    </div>
+                  )}
                   {/* Say why the button is disabled — otherwise it just looks broken. */}
                   {!newKey && (
                     <p className="ag-hint mono">
@@ -972,7 +978,9 @@ export default function RecoveryContent() {
                   command from any client; drop the saved .eml here. */}
               <div className="ag-field">
                 <label className="ag-field-label">
-                  or: prove a saved .eml with your own prover
+                  {HAS_RELAYER
+                    ? "or: prove a saved .eml with your own prover"
+                    : "prove a saved .eml with your own prover"}
                 </label>
                 <div className="ag-row">
                   <button
