@@ -360,6 +360,37 @@ const SPONSORSHIP_POLICY_ID = "sp_nice_the_fallen";
 ///
 /// Pass either a single `target/value/data` or a `calls` array for batched
 /// execution (uses the smart account's `executeBatch` under the hood).
+/// Ask the Pimlico bundler what it will actually accept right now. Returns
+/// undefined if the endpoint is unavailable, so callers can fall back to
+/// viem's own estimation rather than failing outright.
+async function pimlicoGasPrice(
+  chainId: number,
+): Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint } | undefined> {
+  try {
+    const res = await fetch(bundlerUrl(chainId), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "pimlico_getUserOperationGasPrice",
+        params: [],
+      }),
+    });
+    const json = (await res.json()) as {
+      result?: { fast?: { maxFeePerGas: Hex; maxPriorityFeePerGas: Hex } };
+    };
+    const fast = json.result?.fast;
+    if (!fast) return undefined;
+    return {
+      maxFeePerGas: BigInt(fast.maxFeePerGas),
+      maxPriorityFeePerGas: BigInt(fast.maxPriorityFeePerGas),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 export async function sendUserOp(opts: {
   account: `0x${string}`;
   credentialId: string;
@@ -418,9 +449,16 @@ export async function sendUserOp(opts: {
     throw new Error("sendUserOp: must provide either `target` or `calls`");
   }
 
+  // Pimlico enforces its own floor on maxPriorityFeePerGas and rejects the
+  // value viem derives from the RPC ("Invalid fields set on User Operation").
+  // Always take the bundler's own quote; fall back to viem's estimate only if
+  // the call fails.
+  const fees = await pimlicoGasPrice(cid);
+
   const userOpHash = await bundlerClient.sendUserOperation({
     account: smartAccount,
     calls,
+    ...(fees ?? {}),
   });
 
   const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
