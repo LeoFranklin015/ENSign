@@ -200,11 +200,11 @@ export default function DashboardContent() {
         </div>
 
         <section className="actions-row">
-          <Link href="/send" className="action-link">
+          <Link href="/recovery" className="action-link">
             <div className="action-link-body">
-              <p className="action-link-title">send a transaction</p>
+              <p className="action-link-title">set up recovery</p>
               <p className="action-link-sub">
-                build & sign by name. uses your passkey · relayed via EntryPoint.
+                guardians are subnames · ENS names, wallets, or email via zkEmail.
               </p>
             </div>
             <span className="action-link-arrow">→</span>
