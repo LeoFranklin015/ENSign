@@ -238,6 +238,8 @@ export default function AppContent() {
 
       <section className="ds-wrap ds-hero">
         <div className="ds-mound" aria-hidden />
+
+        <div className="ds-hero-copy">
         <h1 className="ds-h1 ds-rise" style={rise(40)}>
           Your name<br />is the <em>wallet</em>.
         </h1>
@@ -251,8 +253,20 @@ export default function AppContent() {
           <NameMorph name={previewName} addr={previewAddr} />
         </div>
 
+        <p className="ds-hero-note ds-rise" style={rise(360)}>
+          Live on Sepolia · <b>ENS v2 staging</b> · gas sponsored
+        </p>
+
+        {hasSession && phase.kind === "idle" && (
+          <p className="ds-resume ds-rise" style={rise(400)}>
+            Already signed in.{" "}
+            <button onClick={() => router.push("/dashboard")}>Continue to dashboard</button>
+          </p>
+        )}
+        </div>
+
         {/* claim / sign-in — the only real action on this page */}
-        <div className="ds-claim ds-rise" style={{ ...rise(300), marginTop: 40 }}>
+        <div className="ds-claim ds-rise" style={rise(300)}>
           <div className="ds-claim-head">
             <span className="ds-claim-eyebrow">
               {avail.state === "taken" ? "Sign in" : "Claim a name"}
@@ -335,16 +349,6 @@ export default function AppContent() {
           )}
         </div>
 
-        <p className="ds-hero-note ds-rise" style={rise(360)}>
-          Live on Sepolia · <b>ENS v2 staging</b> · gas sponsored
-        </p>
-
-        {hasSession && phase.kind === "idle" && (
-          <p className="ds-resume ds-rise" style={rise(400)}>
-            Already signed in.{" "}
-            <button onClick={() => router.push("/dashboard")}>Continue to dashboard</button>
-          </p>
-        )}
       </section>
 
       {/* ── the inversion ── */}
