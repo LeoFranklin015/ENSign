@@ -843,6 +843,14 @@ export default function RecoveryContent() {
               </button>
               {newKey && <span className="ag-hint mono">qx {short(newKey.qx)}</span>}
             </div>
+            {newKey && (
+              <p className="ag-hint mono">
+                for the offline prover scripts:<br />
+                qx {newKey.qx}<br />
+                qy {newKey.qy}<br />
+                nonce {String(nonce)} · account {targetAccount || account}
+              </p>
+            )}
 
             <div className="ag-row">
               <button className="action" disabled={!!busy || !newKey} onClick={signAsGuardian}>
