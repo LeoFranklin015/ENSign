@@ -134,7 +134,10 @@ const zkProviderAbi = parseAbi([
   "function recoveryHash(address account, uint256 nonce, bytes subject) pure returns (bytes32)",
 ]);
 
-const RELAYER = "https://relayer.zk.email/api";
+/// zkEmail relayer. The hosted one at relayer.zk.email currently 404s on its
+/// own prover backend, so point this at a self-hosted instance to complete the
+/// email flow: NEXT_PUBLIC_ZKEMAIL_RELAYER=http://your-host:8000/api
+const RELAYER = process.env.NEXT_PUBLIC_ZKEMAIL_RELAYER ?? "https://relayer.zk.email/api";
 
 /// The relayer's template must render to exactly what the provider expects.
 const COMMAND_TEMPLATE = "Recover account {ethAddr} using recovery hash {string}";
