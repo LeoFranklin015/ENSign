@@ -7,9 +7,9 @@ library Addresses {
     address internal constant ENTRYPOINT_V08 = 0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108;
 
     /// @notice ENSv2 staging `.eth` PermissionedRegistry on Sepolia. The registry that holds
-    ///         the `ensign.eth` token. Provided by the user.
+    ///         the `ensign.eth` token. Deployment `sepolia-official-v1-20260525-r2`.
     address internal constant ENS_V2_ETH_REGISTRY_SEPOLIA =
-        0xF332544e6234f1CA149907D0d4658afD5feB6831;
+        0xDEDB92913A25abE1f7BCDD85D8A344a43B398B67;
 
     /// @notice The parent label our subregistry sits under (i.e. our parent's leaf label).
     string internal constant PARENT_LABEL = "ensign";

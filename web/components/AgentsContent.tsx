@@ -27,7 +27,7 @@ import {
 const MANAGER = process.env.NEXT_PUBLIC_MANAGER_ADDRESS as Address | undefined;
 const BACKEND_BOT = (process.env.NEXT_PUBLIC_BACKEND_BOT_ADDRESS ??
   "") as `0x${string}`;
-const STORAGE_REGISTRY: Address = "0x511b08f0358F042cA5cED53d7bd68F3f41cE740D";
+const STORAGE_REGISTRY: Address = "0x674cBe3246596871f18B2fe3489E09D77734fE06";
 
 const storageAbi = parseAbi([
   "function getTokenId(uint256) view returns (uint256)",

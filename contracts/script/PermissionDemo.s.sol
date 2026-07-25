@@ -71,9 +71,10 @@ contract DemoToken {
  *   - `SEPOLIA_RPC_URL` env var.
  */
 contract PermissionDemo is Script {
-    /// @dev Live `ensign.eth` user-storage proxy (canonical UserRegistry impl).
+    /// @dev Live `ensign.eth` user-storage proxy (canonical UserRegistry impl,
+    ///      sepolia-official-v1-20260525-r2 stack).
     address internal constant USER_STORAGE_REGISTRY =
-        0x511b08f0358F042cA5cED53d7bd68F3f41cE740D;
+        0x674cBe3246596871f18B2fe3489E09D77734fE06;
 
     /// @dev Already-deployed `ENSignAgentRegistry` (the manager).
     address internal constant AGENT_MANAGER =
@@ -83,11 +84,11 @@ contract PermissionDemo is Script {
     address internal constant SMART_ACCOUNT_FACTORY =
         0x5803c076563C85799989d42Fc00292A8aE52fa9E;
 
-    /// @dev Canonical infra (re-used).
+    /// @dev Canonical infra (sepolia-official-v1-20260525-r2).
     address internal constant CANONICAL_PERMISSIONED_RESOLVER_IMPL =
-        0x4a333a4f95eB799baC5446CA44301C09cc5AbcDe;
+        0xdcE5205A553573FFd47629327DDdf36186022FfA;
     address internal constant CANONICAL_VERIFIABLE_FACTORY =
-        0xb9541BDD86C4D01C726A33694f14e8528AdCb20d;
+        0xD2a632D8a8b67c2c4398c255CbD7aF8dd7236198;
 
     string internal constant BOT_LABEL = "bot";
 

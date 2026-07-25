@@ -261,7 +261,7 @@ function base64UrlToBytes(s: string): Uint8Array {
 /// Storage proxy that holds the actual subname tokens (the canonical UserRegistry
 /// proxy that `ensign.eth` points at). Used for direct ownership checks when
 /// the resolver pointer hasn't been set yet.
-const STORAGE_REGISTRY: Address = "0x511b08f0358F042cA5cED53d7bd68F3f41cE740D";
+const STORAGE_REGISTRY: Address = "0x674cBe3246596871f18B2fe3489E09D77734fE06";
 
 const storageRegistryAbi = parseAbi([
   "function getTokenId(uint256) view returns (uint256)",

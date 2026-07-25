@@ -94,9 +94,9 @@ its parent name. No separate revocation tx, no off-chain coordination.
 | component                   | address                                                                                                                            |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | Parent name                 | [`ensign.eth`](https://explorer.ens.dev/ensign.eth/subnames)                                                                       |
-| `ENSignRegistry`            | [`0x1Ca4…F07B`](https://sepolia.etherscan.io/address/0x1Ca41364e5724B456D1d03564ea4EC458Cf9F07B#code)                              |
+| `ENSignRegistry`            | [`0xC68a…fFC0`](https://sepolia.etherscan.io/address/0xC68aAa219D06e38335E1aD3F74e85485BD38fFC0#code)                              |
 | `ENSignAgentRegistry`       | [`0x4303…00f2`](https://sepolia.etherscan.io/address/0x4303e050dc19F8428F146b8E941C75dF9cDd00f2#code)                              |
-| User-storage proxy          | [`0x511b…740D`](https://sepolia.etherscan.io/address/0x511b08f0358F042cA5cED53d7bd68F3f41cE740D)                                   |
+| User-storage proxy          | [`0x674c…fE06`](https://sepolia.etherscan.io/address/0x674cBe3246596871f18B2fe3489E09D77734fE06)                                   |
 | EntryPoint v0.8             | `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108`                                                                                       |
 
 Both registries are verified on Etherscan. Browse the live subnames on the

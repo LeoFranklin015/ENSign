@@ -21,9 +21,10 @@ import {
   type PublicClient,
 } from "viem";
 
-/// Default root registry — ENSv2 staging `.eth` on Sepolia.
+/// Default root registry — ENSv2 staging `.eth` on Sepolia
+/// (deployment `sepolia-official-v1-20260525-r2`).
 export const SEPOLIA_V2_ETH_REGISTRY: Address =
-  "0xF332544e6234f1CA149907D0d4658afD5feB6831";
+  "0xDEDB92913A25abE1f7BCDD85D8A344a43B398B67";
 
 const ZERO: Address = "0x0000000000000000000000000000000000000000";
 

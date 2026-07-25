@@ -78,13 +78,13 @@ contract DemoToken {
  *  10. Verify final balances on-chain.
  */
 contract E2EAgentRegistry is Script {
-    /// @dev Canonical Sepolia infra (re-used).
+    /// @dev Canonical Sepolia infra (sepolia-official-v1-20260525-r2).
     address internal constant CANONICAL_USER_REGISTRY_IMPL =
-        0x8CFbF4a6B3F546021b9F8e6099bdA2Cb0297cd25;
+        0x0F99e7Ea74903AfCB7224d0354fD7428A6f92917;
     address internal constant CANONICAL_PERMISSIONED_RESOLVER_IMPL =
-        0x4a333a4f95eB799baC5446CA44301C09cc5AbcDe;
+        0xdcE5205A553573FFd47629327DDdf36186022FfA;
     address internal constant CANONICAL_VERIFIABLE_FACTORY =
-        0xb9541BDD86C4D01C726A33694f14e8528AdCb20d;
+        0xD2a632D8a8b67c2c4398c255CbD7aF8dd7236198;
     address internal constant CANONICAL_ENTRYPOINT =
         0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108;
 
