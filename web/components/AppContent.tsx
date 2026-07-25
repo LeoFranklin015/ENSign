@@ -237,8 +237,9 @@ export default function AppContent() {
       <Nav />
 
       <section className="ds-wrap ds-hero">
+        <div className="ds-mound" aria-hidden />
         <h1 className="ds-h1 ds-rise" style={rise(40)}>
-          Your name<br />is the wallet.
+          Your name<br />is the <em>wallet</em>.
         </h1>
         <p className="ds-lede ds-rise" style={rise(140)}>
           Pick a subname, approve with your face, and one transaction later you have a
@@ -424,10 +425,10 @@ export default function AppContent() {
           </h2>
 
           <div className="ds-cards">
-            <div className="ds-card">
-              <div className="ds-card-top">
-                <div className="ds-card-ic">⌘</div>
-                <span className="ds-card-pill">live</span>
+            <div className="ds-feat">
+              <div className="ds-feat-top">
+                <div className="ds-feat-ic">⌘</div>
+                <span className="ds-feat-pill">live</span>
               </div>
               <h4>Agents as subnames</h4>
               <p>
@@ -436,10 +437,10 @@ export default function AppContent() {
                 anything forwards.
               </p>
             </div>
-            <div className="ds-card">
-              <div className="ds-card-top">
-                <div className="ds-card-ic">◇</div>
-                <span className="ds-card-pill">live</span>
+            <div className="ds-feat">
+              <div className="ds-feat-top">
+                <div className="ds-feat-ic">◇</div>
+                <span className="ds-feat-pill">live</span>
               </div>
               <h4>Recovery as a namespace</h4>
               <p>
@@ -447,10 +448,10 @@ export default function AppContent() {
                 Let a name expire and it drops out of the quorum by itself.
               </p>
             </div>
-            <div className="ds-card">
-              <div className="ds-card-top">
-                <div className="ds-card-ic">↗</div>
-                <span className="ds-card-pill">live</span>
+            <div className="ds-feat">
+              <div className="ds-feat-top">
+                <div className="ds-feat-ic">↗</div>
+                <span className="ds-feat-pill">live</span>
               </div>
               <h4>Sign in anywhere</h4>
               <p>

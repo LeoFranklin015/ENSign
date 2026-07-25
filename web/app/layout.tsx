@@ -21,11 +21,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://cdn.fontshare.com" crossOrigin="" />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap"
         />
         <link
           rel="stylesheet"
-          href="https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600,700,800&f[]=cabinet-grotesk@600,700,800,900&display=swap"
+          href="https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600,700,800&display=swap"
         />
       </head>
       <body>{children}</body>
