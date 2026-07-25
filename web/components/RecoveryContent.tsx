@@ -451,6 +451,52 @@ export default function RecoveryContent() {
     } finally { setBusy(null); }
   }
 
+  /**
+   * Prove a saved .eml through our own prover and attach the result as an
+   * approval. No relayer involved: the guardian sends the email from any mail
+   * client, you drop the .eml here, the server derives the circuit inputs and
+   * calls the prover.
+   */
+  async function proveEmlAndAttach(file: File) {
+    if (!accountCode) { setErr("paste the account code for this guardian first"); return; }
+    const target = (targetAccount || account) as Address;
+    const guardian = emailGuardians[0];
+    if (!guardian) { setErr("no email guardian registered"); return; }
+
+    setBusy("proving email"); setErr(null);
+    setEmailStatus("deriving circuit inputs and proving — this takes a few minutes…");
+    try {
+      const eml = await file.text();
+      const res = await fetch("/api/zkemail-prove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eml, accountCode }),
+      });
+      const json = (await res.json()) as { proof?: EmailProofJson; error?: string };
+      if (!res.ok || !json.proof) throw new Error(json.error ?? `HTTP ${res.status}`);
+
+      const recoveryId = keccak256(
+        encodeAbiParameters(
+          [{ type: "address" }, { type: "address" }, { type: "bytes" }],
+          [target, guardian.provider, guardian.commitment],
+        ),
+      );
+      setSigs((prev) =>
+        prev.some((s) => s.recoveryId === recoveryId)
+          ? prev
+          : [...prev, {
+              recoveryId,
+              proof: encodeEmailProof(json.proof!),
+              signer: `email @${json.proof!.domainName}`,
+            }]);
+      setEmailProofJson(JSON.stringify(json.proof, null, 2));
+      setEmailStatus(`proof attached — "${json.proof.maskedCommand}"`);
+    } catch (e) {
+      setErr(`proving failed: ${(e as Error).message}`);
+      setEmailStatus(null);
+    } finally { setBusy(null); }
+  }
+
   /** Show the exact text a guardian's email must authorize for the current key. */
   async function showEmailCommand() {
     if (!newKey) { setErr("generate the new passkey first"); return; }
@@ -921,6 +967,41 @@ export default function RecoveryContent() {
               {emailRequestId && (
                 <p className="ag-hint mono">request {emailRequestId}</p>
               )}
+
+              {/* Prover-only path: no relayer, no SMTP. The guardian mails the
+                  command from any client; drop the saved .eml here. */}
+              <div className="ag-field">
+                <label className="ag-field-label">
+                  or: prove a saved .eml with your own prover
+                </label>
+                <div className="ag-row">
+                  <button
+                    className="action" disabled={!!busy || !newKey}
+                    onClick={showEmailCommand}
+                  >
+                    Show command to email
+                  </button>
+                </div>
+                {emailCommand && (
+                  <p className="ag-hint mono">
+                    put this exact line in the email body, then save the .eml:<br />
+                    <strong>{emailCommand}</strong>
+                  </p>
+                )}
+                <input
+                  type="file" accept=".eml,message/rfc822"
+                  className="ag-input mono"
+                  disabled={!!busy || !accountCode}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void proveEmlAndAttach(f);
+                  }}
+                />
+                <p className="ag-hint mono">
+                  Gmail: ⋮ → Show original → Download original. Proving runs on the
+                  prover configured server-side (PROVER_URL).
+                </p>
+              </div>
 
               <details>
                 <summary className="ag-hint mono">manual: paste a proof instead</summary>
