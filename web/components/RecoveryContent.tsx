@@ -147,25 +147,18 @@ type EmailProofJson = {
   proof: Hex;
 };
 
-/// ngrok's free tier serves an HTML interstitial to browser-ish requests, which
-/// would arrive here as "unexpected token '<'". This header opts out of it and
-/// is harmless against any other host.
-const RELAYER_HEADERS = {
-  "Content-Type": "application/json",
-  "ngrok-skip-browser-warning": "true",
-};
-
-/// Ask the relayer to email the guardian. It returns a request id to poll.
+/// Relayer calls go through our own /api/zkemail-relay rather than straight to
+/// the relayer: it only allows `authorization, accept, content-type` on CORS
+/// preflight, so the ngrok-interstitial header the browser would need is
+/// rejected. Server-to-server has no such constraint.
 async function relayerSubmit(body: Record<string, unknown>): Promise<string> {
-  const res = await fetch(`${RELAYER}/submit`, {
+  const res = await fetch("/api/zkemail-relay", {
     method: "POST",
-    headers: RELAYER_HEADERS,
-    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "submit", body }),
   });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`relayer ${res.status}: ${text.slice(0, 200)}`);
-  const json = JSON.parse(text) as { id?: string };
-  if (!json.id) throw new Error(`relayer returned no request id: ${text.slice(0, 160)}`);
+  const json = (await res.json()) as { id?: string; error?: string };
+  if (!res.ok || !json.id) throw new Error(json.error ?? `HTTP ${res.status}`);
   return json.id;
 }
 
@@ -176,17 +169,18 @@ async function relayerStatus(id: string): Promise<{
   status: string;
   proof?: EmailProofJson;
 }> {
-  const res = await fetch(`${RELAYER}/status/${id}`, { headers: RELAYER_HEADERS });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`relayer ${res.status}: ${text.slice(0, 200)}`);
-  const json = JSON.parse(text) as {
-    request?: { status?: string };
-    response?: { proof?: EmailProofJson } | null;
+  const res = await fetch("/api/zkemail-relay", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "status", id }),
+  });
+  const json = (await res.json()) as {
+    status?: string;
+    proof?: EmailProofJson;
+    error?: string;
   };
-  return {
-    status: json.request?.status ?? "Unknown",
-    proof: json.response?.proof,
-  };
+  if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+  return { status: json.status ?? "Unknown", proof: json.proof };
 }
 
 /// ABI-encode an EmailProof exactly as `ZkEmailRecoveryProvider.verify` decodes it.
