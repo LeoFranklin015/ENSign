@@ -877,6 +877,24 @@ export default function RecoveryContent() {
                       {busy === "email approval" ? "waiting…" : "Send approval email"}
                     </button>
                   </div>
+                  {/* Say why the button is disabled — otherwise it just looks broken. */}
+                  {!newKey && (
+                    <p className="ag-hint mono">
+                      ⚠ click <strong>&ldquo;1. Create new passkey&rdquo;</strong> above first —
+                      the email has to commit to a specific new key.
+                    </p>
+                  )}
+                  {newKey && !accountCode && (
+                    <p className="ag-hint mono">
+                      ⚠ paste the account code you saved when registering this guardian.
+                    </p>
+                  )}
+                  {newKey && accountCode && accountCode.length !== 66 && (
+                    <p className="ag-hint mono">
+                      ⚠ account code must be 32 bytes (0x + 64 hex), got{" "}
+                      {(accountCode.length - 2) / 2} bytes.
+                    </p>
+                  )}
                 </>
               )}
 
