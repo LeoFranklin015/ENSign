@@ -49,6 +49,7 @@ const verifierAbi = [{
 const providerAbi = parseAbi([
   "function expectedCommand(address account, uint256 nonce, bytes subject) pure returns (string)",
   "function verify(address account, bytes subject, uint256 nonce, bytes commitment, bytes proof) view",
+  "function verifier() view returns (address)",
 ]);
 
 async function main() {
@@ -77,11 +78,19 @@ async function main() {
   console.log("  maskedCommand ", JSON.stringify(proof.maskedCommand));
   console.log();
 
-  // ── 1. the Groth16 check, straight against the deployed verifier ──
+  // ── 1. the Groth16 check, against whichever verifier the provider actually uses ──
   let vkOk = false;
+  let activeVerifier = ZK_VERIFIER as `0x${string}`;
+  try {
+    activeVerifier = (await client.readContract({
+      address: PROVIDER, abi: providerAbi, functionName: "verifier",
+    })) as `0x${string}`;
+  } catch { /* fall back to zkEmail's canonical deployment */ }
+  console.log("  verifier      ", activeVerifier);
+  console.log();
   try {
     vkOk = (await client.readContract({
-      address: ZK_VERIFIER, abi: verifierAbi, functionName: "verifyEmailProof", args: [proof],
+      address: activeVerifier, abi: verifierAbi, functionName: "verifyEmailProof", args: [proof],
     })) as boolean;
     console.log(vkOk
       ? "1. Groth16 ............ PASS (zkey matches the deployed verification key)"
