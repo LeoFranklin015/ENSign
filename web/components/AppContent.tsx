@@ -381,7 +381,7 @@ export default function AppContent() {
                   email<span className="ds-node-tag">zkemail</span>
                 </div>
               </div>
-              <p style={{ marginTop: 20, fontSize: 12.5, lineHeight: 1.6, color: "var(--on-forest-soft)" }}>
+              <p style={{ marginTop: 20, fontSize: 12.5, lineHeight: 1.6, color: "var(--on-dark-soft)" }}>
                 Agents and guardians are subnames under yours. The hierarchy <em>is</em> the
                 capability tree — not metadata describing one.
               </p>

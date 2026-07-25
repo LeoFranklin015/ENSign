@@ -79,7 +79,7 @@ export function Nav({ onClaim }: { onClaim?: () => void } = {}) {
                 className="ds-navlink"
                 style={
                   pathname === t.href
-                    ? { color: "var(--on-bone)", fontWeight: 500 }
+                    ? { color: "var(--on-paper)", fontWeight: 500 }
                     : undefined
                 }
               >
@@ -120,7 +120,7 @@ export function Nav({ onClaim }: { onClaim?: () => void } = {}) {
               >
                 <i className="ds-dot" />
                 {label}
-                <span style={{ color: "var(--on-bone-faint)" }}>.{PARENT_NAME}</span>
+                <span style={{ color: "var(--on-paper-faint)" }}>.{PARENT_NAME}</span>
               </button>
 
               {open && (
@@ -130,16 +130,16 @@ export function Nav({ onClaim }: { onClaim?: () => void } = {}) {
                     position: "absolute", right: 0, top: "calc(100% + 9px)",
                     minWidth: 264, padding: 7,
                     background: "var(--paper)",
-                    border: "1px solid var(--rule-bone)",
+                    border: "1px solid var(--rule)",
                     borderRadius: 13,
                     boxShadow: "0 22px 44px -20px rgba(15,43,34,.28)",
                     zIndex: 60,
                   }}
                 >
-                  <div style={{ padding: "9px 11px 11px", borderBottom: "1px solid var(--rule-bone)", marginBottom: 5 }}>
+                  <div style={{ padding: "9px 11px 11px", borderBottom: "1px solid var(--rule)", marginBottom: 5 }}>
                     <div style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>{fullName}</div>
                     {account && (
-                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--on-bone-faint)", marginTop: 4 }}>
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--on-paper-faint)", marginTop: 4 }}>
                         {account.slice(0, 10)}…{account.slice(-8)}
                       </div>
                     )}
@@ -158,7 +158,7 @@ export function Nav({ onClaim }: { onClaim?: () => void } = {}) {
                       View on Etherscan ↗
                     </PopItem>
                   )}
-                  <div style={{ height: 1, background: "var(--rule-bone)", margin: "5px 0" }} />
+                  <div style={{ height: 1, background: "var(--rule)", margin: "5px 0" }} />
                   <PopItem onClick={() => { setOpen(false); logout(); }} danger>
                     Log out
                   </PopItem>
@@ -186,7 +186,7 @@ function PopItem({
     padding: "9px 11px", borderRadius: 8, border: 0,
     background: "transparent", cursor: disabled ? "not-allowed" : "pointer",
     font: "400 13.5px/1.3 var(--font-body)",
-    color: danger ? "#A34733" : "var(--on-bone-soft)",
+    color: danger ? "#A34733" : "var(--on-paper-soft)",
     opacity: disabled ? 0.45 : 1,
     textDecoration: "none",
   };
