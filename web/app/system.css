@@ -460,3 +460,43 @@
   .ds-wrap { padding: 0 18px; }
   .ds-band--dark { margin: 0 18px; }
 }
+
+/* ── claim modal ───────────────────────────────────────────────────────────
+   The claim flow lives here rather than on the landing: a marketing page
+   shouldn't carry a form, and every CTA can now open the same one action.   */
+
+.ds-modal-bg {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(14, 33, 22, .34);
+  backdrop-filter: blur(6px);
+  display: grid; place-items: center;
+  padding: 24px;
+  animation: dsfade .22s ease-out;
+}
+@keyframes dsfade { from { opacity: 0; } }
+
+.ds-modal {
+  width: 100%; max-width: 468px;
+  background: var(--card);
+  border-radius: var(--r-card);
+  border: 1px solid var(--rule-soft);
+  padding: 26px;
+  box-shadow: 0 40px 80px -30px rgba(14, 33, 22, .5);
+  animation: dspop .26s cubic-bezier(.2, .8, .3, 1);
+  position: relative;
+}
+@keyframes dspop { from { opacity: 0; transform: translateY(12px) scale(.985); } }
+
+.ds-modal-x {
+  position: absolute; top: 16px; right: 16px;
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--rule-soft); background: var(--card-2);
+  color: var(--on-paper-soft); cursor: pointer;
+  font-size: 15px; line-height: 1; display: grid; place-items: center;
+  transition: background .15s;
+}
+.ds-modal-x:hover { background: var(--paper-2); }
+
+/* the closing coda centres its own CTA — .ds-hero-cta is left-aligned now
+   that the hero is a two-column grid */
+.ds-band--close .ds-hero-cta { justify-content: center; }

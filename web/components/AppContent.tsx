@@ -115,6 +115,7 @@ export default function AppContent() {
   const [avail, setAvail] = useState<Availability>({ state: "idle" });
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [hasSession, setHasSession] = useState(false);
+  const [claimOpen, setClaimOpen] = useState(false);
   const checkRef = useRef<number>(0);
 
   useEffect(() => {
@@ -213,6 +214,16 @@ export default function AppContent() {
     }
   }
 
+  // Esc closes the modal, but never mid-flow — a passkey ceremony is in progress.
+  useEffect(() => {
+    if (!claimOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && phase.kind === "idle") setClaimOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [claimOpen, phase.kind]);
+
   const inFlow = phase.kind === "active" || phase.kind === "done";
   const isError = phase.kind === "error";
 
@@ -234,7 +245,7 @@ export default function AppContent() {
 
   return (
     <div className="ds">
-      <Nav />
+      <Nav onClaim={() => setClaimOpen(true)} />
 
       <section className="ds-wrap ds-hero">
         <div className="ds-mound" aria-hidden />
@@ -253,6 +264,12 @@ export default function AppContent() {
           <NameMorph name={previewName} addr={previewAddr} />
         </div>
 
+        <div className="ds-hero-cta ds-rise" style={rise(250)}>
+          <button className="ds-btn" onClick={() => setClaimOpen(true)}>
+            Claim your name <span aria-hidden>→</span>
+          </button>
+        </div>
+
         <p className="ds-hero-note ds-rise" style={rise(360)}>
           Live on Sepolia · <b>ENS v2 staging</b> · gas sponsored
         </p>
@@ -265,90 +282,43 @@ export default function AppContent() {
         )}
         </div>
 
-        {/* claim / sign-in — the only real action on this page */}
-        <div className="ds-claim ds-rise" style={rise(300)}>
-          <div className="ds-claim-head">
-            <span className="ds-claim-eyebrow">
-              {avail.state === "taken" ? "Sign in" : "Claim a name"}
-            </span>
-            {avail.state === "taken" && (
-              <span className="ds-claim-eyebrow">existing passkey</span>
-            )}
+        {/* right column: the product itself, not a form */}
+        <div className="ds-slab ds-rise" style={rise(300)}>
+          <div className="ds-slab-bar">
+            <span className="ds-tab ds-tab--on">Name tree</span>
+            <span className="ds-live"><i className="ds-dot" /> ENS v2 · Sepolia</span>
           </div>
-
-          {!inFlow ? (
-            <>
-              <p className="ds-claim-prompt">
-                {avail.state === "taken" ? (
-                  <>
-                    <em>{label}.{PARENT_NAME}</em> is already minted — sign in with the
-                    passkey bound to it.
-                  </>
-                ) : avail.state === "occupied" ? (
-                  <>
-                    <em>{label}.{PARENT_NAME}</em> is registered but its resolver was never
-                    wired. Pick a different label.
-                  </>
-                ) : (
-                  <>Your wallet address is derived from whatever you type here.</>
-                )}
-              </p>
-
-              <div className="ds-field">
-                <input
-                  placeholder="alice"
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value.toLowerCase().trim())}
-                  autoFocus
-                  spellCheck={false}
-                  autoComplete="off"
-                  onKeyDown={(e) => { if (e.key === "Enter" && cta.enabled) cta.handler(); }}
-                />
-                <span className="ds-field-suffix">.{PARENT_NAME}</span>
+          <div className="ds-panel">
+            <div className="ds-tree">
+              <div className="ds-node ds-node--root">
+                {previewName}
+                <span className="ds-node-tag ds-node-tag--live">wallet</span>
               </div>
-
-              <AvailabilityRow avail={avail} />
-
-              <button
-                className="ds-btn ds-btn--block"
-                onClick={cta.handler}
-                disabled={!cta.enabled}
-              >
-                {cta.label} <span aria-hidden>→</span>
-              </button>
-
-              {isError && <div className="ds-err">{phase.message}</div>}
-            </>
-          ) : (
-            <>
-              <p className="ds-claim-prompt">
-                {phase.kind === "active" || phase.kind === "done" ? (
-                  phase.mode === "signin" ? (
-                    <>Verifying <em>{label}.{PARENT_NAME}</em> — don&apos;t close the tab.</>
-                  ) : (
-                    <>Minting <em>{label}.{PARENT_NAME}</em> — don&apos;t close the tab.</>
-                  )
-                ) : null}
-              </p>
-              <MultiStepLoader
-                steps={
-                  phase.kind === "active" || phase.kind === "done"
-                    ? phase.mode === "signin" ? SIGNIN_STEPS : SIGNUP_STEPS
-                    : SIGNUP_STEPS
-                }
-                currentId={phase.kind === "active" ? phase.stepId : null}
-                done={phase.kind === "done"}
-                error={null}
-              />
-              {phase.kind === "done" && (
-                <p className="ds-claim-prompt" style={{ marginTop: 16, marginBottom: 0 }}>
-                  ✓ {phase.mode === "signin" ? "Signed in" : "Sealed"} — opening dashboard…
-                </p>
-              )}
-            </>
-          )}
+              <div className="ds-node ds-node--child" style={{ marginTop: 6 }}>
+                trader<span className="ds-node-tag">usdc · 10/day</span>
+              </div>
+              <div className="ds-node ds-node--child">
+                scout<span className="ds-node-tag">read only</span>
+              </div>
+              <div className="ds-node ds-node--child">
+                recovery<span className="ds-node-tag ds-node-tag--live">2 of 3</span>
+              </div>
+              <div className="ds-node ds-node--child" style={{ marginLeft: 52, opacity: 0.75 }}>
+                mom<span className="ds-node-tag">ens name</span>
+              </div>
+              <div className="ds-node ds-node--child" style={{ marginLeft: 52, opacity: 0.75 }}>
+                email<span className="ds-node-tag">zkemail</span>
+              </div>
+            </div>
+          </div>
+          <div className="ds-panel" style={{ marginTop: 12 }}>
+            <div className="ds-rows">
+              <div className="ds-row"><span>addr</span><b>{previewAddr}</b></div>
+              <div className="ds-row"><span>credentialId</span><b>passkey</b></div>
+              <div className="ds-row"><span>registry</span><b>0x674c…fE06</b></div>
+            </div>
+          </div>
         </div>
-
       </section>
 
       {/* ── the inversion ── */}
@@ -477,15 +447,110 @@ export default function AppContent() {
             One transaction, sponsored. Nothing to install.
           </p>
           <div className="ds-hero-cta">
-            <button
-              className="ds-btn"
-              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            >
+            <button className="ds-btn" onClick={() => setClaimOpen(true)}>
               Claim your name <span aria-hidden>→</span>
             </button>
           </div>
         </div>
       </section>
+
+      {claimOpen && (
+        <div
+          className="ds-modal-bg"
+          onClick={() => { if (phase.kind === "idle") setClaimOpen(false); }}
+        >
+          <div className="ds-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal>
+            {phase.kind === "idle" && (
+              <button className="ds-modal-x" onClick={() => setClaimOpen(false)} aria-label="Close">
+                ×
+              </button>
+            )}
+        <div>
+          <div className="ds-claim-head">
+            <span className="ds-claim-eyebrow">
+              {avail.state === "taken" ? "Sign in" : "Claim a name"}
+            </span>
+            {avail.state === "taken" && (
+              <span className="ds-claim-eyebrow">existing passkey</span>
+            )}
+          </div>
+
+          {!inFlow ? (
+            <>
+              <p className="ds-claim-prompt">
+                {avail.state === "taken" ? (
+                  <>
+                    <em>{label}.{PARENT_NAME}</em> is already minted — sign in with the
+                    passkey bound to it.
+                  </>
+                ) : avail.state === "occupied" ? (
+                  <>
+                    <em>{label}.{PARENT_NAME}</em> is registered but its resolver was never
+                    wired. Pick a different label.
+                  </>
+                ) : (
+                  <>Your wallet address is derived from whatever you type here.</>
+                )}
+              </p>
+
+              <div className="ds-field">
+                <input
+                  placeholder="alice"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value.toLowerCase().trim())}
+                  autoFocus
+                  spellCheck={false}
+                  autoComplete="off"
+                  onKeyDown={(e) => { if (e.key === "Enter" && cta.enabled) cta.handler(); }}
+                />
+                <span className="ds-field-suffix">.{PARENT_NAME}</span>
+              </div>
+
+              <AvailabilityRow avail={avail} />
+
+              <button
+                className="ds-btn ds-btn--block"
+                onClick={cta.handler}
+                disabled={!cta.enabled}
+              >
+                {cta.label} <span aria-hidden>→</span>
+              </button>
+
+              {isError && <div className="ds-err">{phase.message}</div>}
+            </>
+          ) : (
+            <>
+              <p className="ds-claim-prompt">
+                {phase.kind === "active" || phase.kind === "done" ? (
+                  phase.mode === "signin" ? (
+                    <>Verifying <em>{label}.{PARENT_NAME}</em> — don&apos;t close the tab.</>
+                  ) : (
+                    <>Minting <em>{label}.{PARENT_NAME}</em> — don&apos;t close the tab.</>
+                  )
+                ) : null}
+              </p>
+              <MultiStepLoader
+                steps={
+                  phase.kind === "active" || phase.kind === "done"
+                    ? phase.mode === "signin" ? SIGNIN_STEPS : SIGNUP_STEPS
+                    : SIGNUP_STEPS
+                }
+                currentId={phase.kind === "active" ? phase.stepId : null}
+                done={phase.kind === "done"}
+                error={null}
+              />
+              {phase.kind === "done" && (
+                <p className="ds-claim-prompt" style={{ marginTop: 16, marginBottom: 0 }}>
+                  ✓ {phase.mode === "signin" ? "Signed in" : "Sealed"} — opening dashboard…
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
+          </div>
+        </div>
+      )}
 
       <div className="ds-wrap">
         <footer className="ds-foot">

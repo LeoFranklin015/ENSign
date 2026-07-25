@@ -16,7 +16,7 @@ const TABS = [
   { href: "/install", label: "Sign-in" },
 ] as const;
 
-export function Nav() {
+export function Nav({ onClaim }: { onClaim?: () => void } = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const [label, setLabel] = useState<string | null>(null);
@@ -93,6 +93,11 @@ export function Nav() {
           {!label ? (
             <>
               <Link href="/pitch" className="ds-navlink">Pitch</Link>
+              {onClaim && (
+                <button className="ds-btn" style={{ padding: "10px 18px", fontSize: 14 }} onClick={onClaim}>
+                  Claim a name
+                </button>
+              )}
               <a
                 className="ds-navlink"
                 href="https://github.com/LeoFranklin015/ENSign"
