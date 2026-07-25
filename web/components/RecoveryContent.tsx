@@ -88,15 +88,41 @@ function describeCommitment(r: Recovery): string {
   }
 }
 
+/**
+ * A zkEmail account code: exactly 32 bytes (the relayer rejects any other
+ * length) with a zeroed leading byte so the value stays below the BN254 field
+ * modulus the circuit works in.
+ */
+function newAccountCode(): Hex {
+  const bytes = crypto.getRandomValues(new Uint8Array(31));
+  let hex = "";
+  for (const b of bytes) hex += b.toString(16).padStart(2, "0");
+  return ("0x00" + hex) as Hex;
+}
+
 /** zkEmail's relayer derives accountSalt = Poseidon(emailAddress, accountCode). */
 async function deriveAccountSalt(emailAddress: string, accountCode: Hex): Promise<Hex> {
-  const res = await fetch("https://relayer.zk.email/api/accountSalt", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ emailAddress, accountCode }),
-  });
-  if (!res.ok) throw new Error(`relayer ${res.status}: ${await res.text()}`);
-  const json = (await res.json()) as { accountSalt?: string };
+  if (accountCode.length !== 66) {
+    throw new Error(`account code must be 32 bytes, got ${(accountCode.length - 2) / 2}`);
+  }
+  let res: Response;
+  try {
+    res = await fetch("https://relayer.zk.email/api/accountSalt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emailAddress, accountCode }),
+    });
+  } catch (e) {
+    throw new Error(`could not reach zkEmail relayer: ${(e as Error).message}`);
+  }
+  const body = await res.text();
+  if (!res.ok) throw new Error(`relayer ${res.status}: ${body.slice(0, 160)}`);
+  let json: { accountSalt?: string };
+  try {
+    json = JSON.parse(body) as { accountSalt?: string };
+  } catch {
+    throw new Error(`relayer returned non-JSON: ${body.slice(0, 160)}`);
+  }
   if (!json.accountSalt) throw new Error("relayer returned no accountSalt");
   return json.accountSalt as Hex;
 }
@@ -231,9 +257,9 @@ export default function RecoveryContent() {
     try {
       // The account code is the guardian's secret half of their identity: it is
       // needed again to prove, so surface it for the user to save.
-      const code = (accountCode ??
-        (("0x" + crypto.getRandomValues(new Uint8Array(31))
-          .reduce((s, b) => s + b.toString(16).padStart(2, "0"), "")) as Hex));
+      // Must be exactly 32 bytes for the relayer, and below the BN254 field
+      // modulus for the circuit — so draw 31 random bytes and zero the top one.
+      const code = accountCode ?? newAccountCode();
       setAccountCode(code);
 
       const salt = await deriveAccountSalt(email, code);
