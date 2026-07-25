@@ -510,3 +510,62 @@ export async function isJawDeployed(account: `0x${string}`, chainId: number): Pr
   const code = await client.getCode({ address: account });
   return !!code && code !== "0x";
 }
+
+// ---------------------------------------------------------------------------
+// Primary name (ENS reverse record)
+//
+// The ENSv2 staging deployment (sepolia-official-v1-20260525-r2) ships no v2
+// reverse registrar. Its RootRegistry resolves the `reverse` label through
+// ENSV1Resolver, which bridges every `*.addr.reverse` lookup to the existing
+// Sepolia v1 ReverseRegistrar. So: writes go to the v1 registrar (below),
+// reads come back through the staging UniversalResolverV2, which also
+// forward-verifies the name against our v2 subname records.
+//
+// Staging redeploys can rewire this — cross-check the deployment artifacts
+// in ensdomains/contracts-v2 (see docs/ENSv2-RUNBOOK.md) if reads go dark.
+// ---------------------------------------------------------------------------
+
+/// Sepolia v1 ReverseRegistrar. `setName(string)` claims `<caller>.addr.reverse`,
+/// points it at the default reverse resolver, and writes the name — one call.
+/// msg.sender-authorized, so the JAW itself must send it (via sendUserOp).
+export const REVERSE_REGISTRAR: Address =
+  "0xA0a1AbcDAe1a2a4A2EF8e9113Ff0e02DD81DC0C6";
+
+/// UniversalResolverV2 from the staging deployment — the read path.
+export const UNIVERSAL_RESOLVER_V2: Address =
+  "0x2f8a180604c42457cb56c7c4f708748ff1f91df1";
+
+export const reverseRegistrarAbi = parseAbi([
+  "function setName(string name) returns (bytes32)",
+]);
+
+const universalResolverV2Abi = parseAbi([
+  "function reverse(bytes lookupAddress, uint256 coinType) view returns (string name, address resolver, address reverseResolver)",
+]);
+
+/// Primary name for an address, or null when unset. Also null when the
+/// UniversalResolver reverts (failed forward-verification) or the RPC is
+/// down — callers only need "show ✓" vs "show the button". Never throws.
+export async function getPrimaryName(addr: Address): Promise<string | null> {
+  try {
+    const [name] = await publicClient.readContract({
+      address: UNIVERSAL_RESOLVER_V2,
+      abi: universalResolverV2Abi,
+      functionName: "reverse",
+      args: [addr, 60n],
+    });
+    return name || null;
+  } catch {
+    return null;
+  }
+}
+
+/// Calldata for ReverseRegistrar.setName(fullName). Send from the JAW:
+/// sendUserOp({ account, credentialId, target: REVERSE_REGISTRAR, data: ... }).
+export function setPrimaryNameData(fullName: string): Hex {
+  return encodeFunctionData({
+    abi: reverseRegistrarAbi,
+    functionName: "setName",
+    args: [fullName],
+  });
+}
