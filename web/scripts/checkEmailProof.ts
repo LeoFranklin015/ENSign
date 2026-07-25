@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * Check a zkEmail EmailProof against the LIVE Sepolia stack, in isolation.
  *
