@@ -1,0 +1,384 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   ENSign design system v2 — "field notes"
+   Bone paper, forest ink, data in phosphor green.
+
+   Rules that keep it disciplined:
+     · Green is DATA ONLY. Never a button, never chrome. If it's green, it's
+       a live value from the chain.
+     · Ink (near-black) carries the actions. One CTA weight, everywhere.
+     · Bands alternate bone → forest → bone. Rhythm, not one endless surface.
+     · Mono is for anything the chain produced: names, addresses, hashes.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.ds {
+  /* surfaces */
+  --bone:        #F5F2EA;
+  --bone-2:      #EDE9DE;
+  --paper:       #FFFDF8;
+  --forest:      #0F2B22;
+  --forest-2:    #143528;
+  --forest-lift: #1B4535;
+  --ink:         #0B0F0D;
+
+  /* type */
+  --on-bone:      #14201B;
+  --on-bone-soft: #55635C;
+  --on-bone-faint:#8B968F;
+  --on-forest:      #EFEFE7;
+  --on-forest-soft: #9DB3A8;
+  --on-forest-faint:#5F7B6E;
+
+  /* data */
+  --phosphor:     #63E6A0;
+  --phosphor-dim: rgba(99, 230, 160, 0.16);
+  --amber:        #E0A340;
+
+  /* lines */
+  --rule-bone:   rgba(20, 32, 27, 0.10);
+  --rule-forest: rgba(255, 255, 255, 0.09);
+
+  --font-display: "Cabinet Grotesk", "Switzer", sans-serif;
+  --font-body:    "Switzer", sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, monospace;
+
+  --page: 1180px;
+
+  background: var(--bone);
+  color: var(--on-bone);
+  font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+.ds *, .ds *::before, .ds *::after { box-sizing: border-box; }
+
+/* ── shared primitives ─────────────────────────────────────────────────── */
+
+.ds-wrap { max-width: var(--page); margin: 0 auto; padding: 0 32px; }
+
+.ds-band { padding: 104px 0; }
+.ds-band--forest {
+  background: var(--forest);
+  color: var(--on-forest);
+  /* faint vignette so the slab has depth rather than reading as flat fill */
+  background-image: radial-gradient(120% 90% at 50% 0%, rgba(99,230,160,.07), transparent 62%);
+}
+.ds-band--paper { background: var(--paper); }
+
+.ds-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--on-bone-faint);
+  margin: 0 0 20px;
+}
+.ds-band--forest .ds-eyebrow { color: var(--on-forest-faint); }
+
+.ds-h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(44px, 6.4vw, 82px);
+  line-height: 0.97;
+  letter-spacing: -0.035em;
+  margin: 0;
+}
+.ds-h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(30px, 3.6vw, 44px);
+  line-height: 1.06;
+  letter-spacing: -0.028em;
+  margin: 0 0 18px;
+}
+.ds-lede {
+  font-size: 17px;
+  line-height: 1.62;
+  color: var(--on-bone-soft);
+  max-width: 52ch;
+  margin: 20px 0 0;
+}
+.ds-band--forest .ds-lede { color: var(--on-forest-soft); }
+
+/* buttons — ink only, never green */
+.ds-btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 13px 22px;
+  border-radius: 999px;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  font: 500 14.5px/1 var(--font-body);
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform .18s cubic-bezier(.2,.7,.3,1), background .18s;
+}
+.ds-btn:hover { transform: translateY(-1.5px); background: #1a2420; }
+.ds-btn--ghost {
+  background: transparent; color: var(--on-bone);
+  border-color: var(--rule-bone);
+}
+.ds-btn--ghost:hover { background: rgba(20,32,27,.05); }
+.ds-band--forest .ds-btn { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.ds-band--forest .ds-btn--ghost {
+  background: transparent; color: var(--on-forest); border-color: var(--rule-forest);
+}
+
+/* ── nav ───────────────────────────────────────────────────────────────── */
+
+.ds-nav {
+  position: sticky; top: 0; z-index: 40;
+  background: rgba(245,242,234,.86);
+  backdrop-filter: blur(14px) saturate(1.4);
+  border-bottom: 1px solid var(--rule-bone);
+}
+.ds-nav-in {
+  max-width: var(--page); margin: 0 auto; padding: 15px 32px;
+  display: flex; align-items: center; gap: 34px;
+}
+.ds-brand {
+  font-family: var(--font-display);
+  font-weight: 800; font-size: 19px; letter-spacing: -0.03em;
+  display: flex; align-items: baseline; gap: 9px;
+}
+.ds-brand span {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--on-bone-faint); font-weight: 500;
+}
+.ds-navlinks { display: flex; gap: 26px; margin-left: 12px; }
+.ds-navlink {
+  font-size: 14.5px; color: var(--on-bone-soft); text-decoration: none;
+  transition: color .15s;
+}
+.ds-navlink:hover { color: var(--on-bone); }
+.ds-nav-right { margin-left: auto; display: flex; align-items: center; gap: 18px; }
+
+/* ── hero ──────────────────────────────────────────────────────────────── */
+
+.ds-hero { padding: 92px 0 70px; text-align: center; }
+.ds-hero .ds-lede { margin-left: auto; margin-right: auto; text-align: center; }
+.ds-hero-cta { display: flex; gap: 12px; justify-content: center; margin-top: 34px; }
+.ds-hero-note {
+  margin-top: 22px; font-size: 13px; color: var(--on-bone-faint);
+  font-family: var(--font-mono); letter-spacing: .02em;
+}
+.ds-hero-note b { color: var(--on-bone); font-weight: 500; }
+
+/* the signature: name ⇄ address */
+.ds-morph {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  background: linear-gradient(180deg, var(--forest) 0%, #2c5a48 100%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+  position: relative;
+  white-space: nowrap;
+}
+.ds-morph::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: -0.12em;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--phosphor), transparent);
+  opacity: .5;
+}
+
+/* ── product slab (the dark screenshot frame) ──────────────────────────── */
+
+.ds-slab {
+  margin-top: 58px;
+  background: var(--forest);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.07) inset,
+    0 40px 80px -32px rgba(15,43,34,.55),
+    0 8px 24px -12px rgba(15,43,34,.3);
+  background-image: radial-gradient(90% 70% at 20% 0%, rgba(99,230,160,.09), transparent 60%);
+}
+.ds-slab-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 4px 16px;
+}
+.ds-tab {
+  font-size: 12.5px; padding: 6px 13px; border-radius: 999px;
+  color: var(--on-forest-soft); border: 1px solid transparent;
+}
+.ds-tab--on { background: rgba(255,255,255,.09); color: var(--on-forest); }
+.ds-live {
+  margin-left: auto; display: flex; align-items: center; gap: 7px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--on-forest-soft);
+}
+.ds-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--phosphor);
+  box-shadow: 0 0 0 0 var(--phosphor-dim);
+  animation: dspulse 2.4s ease-out infinite;
+}
+@keyframes dspulse {
+  0%   { box-shadow: 0 0 0 0 rgba(99,230,160,.45); }
+  70%  { box-shadow: 0 0 0 7px rgba(99,230,160,0); }
+  100% { box-shadow: 0 0 0 0 rgba(99,230,160,0); }
+}
+
+/* stat strip inside the slab */
+.ds-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  background: var(--forest-2);
+  border: 1px solid var(--rule-forest);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ds-stat { padding: 18px 20px; border-right: 1px solid var(--rule-forest); }
+.ds-stat:last-child { border-right: 0; }
+.ds-stat-k {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--on-forest-faint);
+}
+.ds-stat-v {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 27px; letter-spacing: -0.03em; margin-top: 9px;
+  color: var(--on-forest);
+}
+.ds-stat-d { font-family: var(--font-mono); font-size: 11.5px; color: var(--phosphor); margin-top: 5px; }
+
+/* tree panel inside the slab */
+.ds-panels { display: grid; grid-template-columns: 1.35fr 1fr; gap: 14px; margin-top: 14px; }
+.ds-panel {
+  background: var(--forest-2); border: 1px solid var(--rule-forest);
+  border-radius: 12px; padding: 18px 20px; min-height: 260px;
+}
+.ds-panel-h {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12.5px; color: var(--on-forest-soft); margin-bottom: 18px;
+}
+.ds-panel-h b { color: var(--on-forest); font-weight: 500; }
+
+/* the tree */
+.ds-tree { font-family: var(--font-mono); font-size: 13px; }
+.ds-node {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px; border-radius: 7px;
+  color: var(--on-forest);
+}
+.ds-node--root { background: rgba(99,230,160,.09); border: 1px solid rgba(99,230,160,.2); }
+.ds-node--child { margin-left: 26px; position: relative; color: var(--on-forest-soft); }
+.ds-node--child::before {
+  content: ""; position: absolute; left: -14px; top: -6px; bottom: 50%;
+  width: 1px; background: var(--rule-forest);
+}
+.ds-node--child::after {
+  content: ""; position: absolute; left: -14px; top: 50%;
+  width: 11px; height: 1px; background: var(--rule-forest);
+}
+.ds-node-tag {
+  margin-left: auto; font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 5px;
+  background: rgba(255,255,255,.06); color: var(--on-forest-faint);
+}
+.ds-node-tag--live { background: var(--phosphor-dim); color: var(--phosphor); }
+
+/* rows (key/value list) */
+.ds-rows { display: grid; gap: 0; }
+.ds-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 11px 0; border-bottom: 1px solid var(--rule-forest);
+  font-size: 13px; color: var(--on-forest-soft);
+}
+.ds-row:last-child { border-bottom: 0; }
+.ds-row b { color: var(--on-forest); font-weight: 500; font-family: var(--font-mono); font-size: 12.5px; }
+
+/* ── proof strip ───────────────────────────────────────────────────────── */
+
+.ds-proof {
+  display: grid; grid-template-columns: 1.1fr repeat(3, 1fr);
+  border-top: 1px solid var(--rule-bone);
+  border-bottom: 1px solid var(--rule-bone);
+}
+.ds-proof > div { padding: 30px 28px; border-right: 1px solid var(--rule-bone); }
+.ds-proof > div:last-child { border-right: 0; }
+.ds-proof-lead {
+  background: var(--ink); color: var(--paper);
+  font-family: var(--font-display); font-weight: 600; font-size: 18px;
+  line-height: 1.32; letter-spacing: -0.02em;
+}
+.ds-proof-lead em { font-style: normal; color: var(--phosphor); }
+.ds-proof-k { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--on-bone-faint); }
+.ds-proof-v { font-family: var(--font-display); font-weight: 700; font-size: 32px;
+  letter-spacing: -0.03em; margin-top: 10px; }
+.ds-proof-s { font-size: 12.5px; color: var(--on-bone-faint); margin-top: 6px; }
+
+/* ── split feature ─────────────────────────────────────────────────────── */
+
+.ds-split { display: grid; grid-template-columns: 1fr 1.15fr; gap: 72px; align-items: center; }
+.ds-split--flip > *:first-child { order: 2; }
+
+.ds-speclist { margin-top: 26px; border-top: 1px solid var(--rule-bone); }
+.ds-band--forest .ds-speclist { border-color: var(--rule-forest); }
+.ds-spec {
+  display: flex; justify-content: space-between; gap: 20px;
+  padding: 13px 0; border-bottom: 1px solid var(--rule-bone);
+  font-size: 13.5px;
+}
+.ds-band--forest .ds-spec { border-color: var(--rule-forest); }
+.ds-spec-k { color: var(--on-bone-soft); }
+.ds-band--forest .ds-spec-k { color: var(--on-forest-soft); }
+.ds-spec-v { font-family: var(--font-mono); font-size: 12.5px; text-align: right; }
+
+/* ── three cards ───────────────────────────────────────────────────────── */
+
+.ds-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 42px; }
+.ds-card {
+  background: var(--forest-2); border: 1px solid var(--rule-forest);
+  border-radius: 14px; padding: 22px;
+  transition: transform .2s cubic-bezier(.2,.7,.3,1), border-color .2s;
+}
+.ds-card:hover { transform: translateY(-3px); border-color: rgba(99,230,160,.28); }
+.ds-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }
+.ds-card-ic {
+  width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
+  background: rgba(255,255,255,.07); font-family: var(--font-mono); font-size: 13px;
+  color: var(--on-forest-soft);
+}
+.ds-card-pill {
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 5px; background: var(--phosphor-dim); color: var(--phosphor);
+}
+.ds-card h4 {
+  font-family: var(--font-display); font-weight: 600; font-size: 17.5px;
+  letter-spacing: -0.02em; margin: 0 0 9px; color: var(--on-forest);
+}
+.ds-card p { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--on-forest-soft); }
+
+/* ── footer ────────────────────────────────────────────────────────────── */
+
+.ds-foot {
+  border-top: 1px solid var(--rule-bone);
+  padding: 34px 0;
+  display: flex; align-items: center; gap: 18px;
+  font-size: 13px; color: var(--on-bone-faint);
+}
+.ds-foot a { color: var(--on-bone-soft); text-decoration: none; }
+.ds-foot a:hover { color: var(--on-bone); }
+.ds-foot-sp { margin-left: auto; display: flex; gap: 20px; }
+
+/* ── entrance: one orchestrated load, staggered ────────────────────────── */
+
+.ds-rise { opacity: 0; transform: translateY(14px); animation: dsrise .78s cubic-bezier(.2,.7,.3,1) forwards; }
+@keyframes dsrise { to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-rise { animation: none; opacity: 1; transform: none; }
+  .ds-dot { animation: none; }
+}
+
+@media (max-width: 900px) {
+  .ds-stats, .ds-proof, .ds-cards { grid-template-columns: 1fr 1fr; }
+  .ds-panels, .ds-split { grid-template-columns: 1fr; }
+  .ds-navlinks { display: none; }
+  .ds-band { padding: 68px 0; }
+}
+@media (max-width: 560px) {
+  .ds-stats, .ds-proof, .ds-cards { grid-template-columns: 1fr; }
+  .ds-wrap { padding: 0 20px; }
+}

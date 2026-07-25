@@ -25,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         <link
           rel="stylesheet"
-          href="https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600,700,800&display=swap"
+          href="https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600,700,800&f[]=cabinet-grotesk@600,700,800,900&display=swap"
         />
       </head>
       <body>{children}</body>
