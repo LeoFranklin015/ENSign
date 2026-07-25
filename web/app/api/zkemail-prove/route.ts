@@ -77,6 +77,8 @@ export async function POST(req: Request) {
     }
 
     const utils = await import("@zk-email/relayer-utils");
+    // wasm-bindgen module: instantiate before any call.
+    await utils.init();
 
     // Parse once: gives us the DKIM public key and signature.
     const parsed = (await utils.parseEmail(eml)) as {
