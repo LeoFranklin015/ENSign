@@ -5,6 +5,16 @@ import { usePathname, useRouter } from "next/navigation";
 import { clearSession, getSession } from "@/lib/session";
 import { PARENT_NAME } from "@/lib/ensign";
 import { useEffect, useRef, useState } from "react";
+import "../app/system.css";
+
+/// Signed-in surfaces. `send` was removed — a generic transfer form isn't the
+/// product, and it crowded out recovery, which had no route into it at all.
+const TABS = [
+  { href: "/dashboard", label: "Wallet" },
+  { href: "/agents", label: "Agents" },
+  { href: "/recovery", label: "Recovery" },
+  { href: "/install", label: "Sign-in" },
+] as const;
 
 export function Nav() {
   const pathname = usePathname();
@@ -21,13 +31,10 @@ export function Nav() {
     setAccount(s?.account ?? null);
   }, []);
 
-  // Click-outside / escape close
   useEffect(() => {
     if (!open) return;
     function onDoc(e: MouseEvent) {
-      if (popRef.current && !popRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (popRef.current && !popRef.current.contains(e.target as Node)) setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
@@ -51,134 +58,148 @@ export function Nav() {
       await navigator.clipboard.writeText(account);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // ignore
-    }
+    } catch { /* clipboard blocked — nothing useful to do */ }
   }
-
-  const tabs = [
-    { href: "/dashboard", label: "home" },
-    { href: "/send", label: "send" },
-    { href: "/agents", label: "agents" },
-    { href: "/install", label: "install" },
-  ] as const;
 
   const fullName = label ? `${label}.${PARENT_NAME}` : "";
 
   return (
-    <header className="bar">
-      <Link href={label ? "/dashboard" : "/"} className="brand">
-        <span className="brand-glyph" aria-hidden="true" />
-        <span className="brand-name">
-          EN<em>S</em>ign
-        </span>
-      </Link>
+    <nav className="ds-nav">
+      <div className="ds-nav-in">
+        <Link href={label ? "/dashboard" : "/"} className="ds-brand" style={{ textDecoration: "none", color: "inherit" }}>
+          ENSign <span>ENS v2</span>
+        </Link>
 
-      {label ? (
-        <nav className="nav-tabs">
-          {tabs.map((t) => (
-            <Link
-              key={t.href}
-              href={t.href}
-              className={`nav-tab${pathname === t.href ? " nav-tab--active" : ""}`}
-            >
-              {t.label}
-            </Link>
-          ))}
-        </nav>
-      ) : (
-        <span aria-hidden="true" />
-      )}
-
-      <div className="bar-right">
-        {/* Pitch link — only on landing (no session). */}
-        {!label && (
-          <Link
-            href="/pitch"
-            className={`nav-pitch${pathname === "/pitch" ? " nav-pitch--active" : ""}`}
-          >
-            pitch ↗
-          </Link>
+        {label && (
+          <div className="ds-navlinks">
+            {TABS.map((t) => (
+              <Link
+                key={t.href}
+                href={t.href}
+                className="ds-navlink"
+                style={
+                  pathname === t.href
+                    ? { color: "var(--on-bone)", fontWeight: 500 }
+                    : undefined
+                }
+              >
+                {t.label}
+              </Link>
+            ))}
+          </div>
         )}
-        {label ? (
-          <div className="nav-id" ref={popRef}>
-            <button
-              type="button"
-              className={`bar-name bar-name--button${open ? " bar-name--open" : ""}`}
-              onClick={() => setOpen((v) => !v)}
-              aria-expanded={open}
-              aria-haspopup="menu"
-              title={fullName}
-            >
-              <span className="bar-name-dot" aria-hidden="true" />
-              <span>
-                {label}
-                <span className="bar-name-suffix">.{PARENT_NAME}</span>
-              </span>
-              <span className="bar-name-caret" aria-hidden="true">
-                ▾
-              </span>
-            </button>
 
-            {open && (
-              <div className="nav-pop" role="menu">
-                <div className="nav-pop-head">
-                  <span className="nav-pop-name">{fullName}</span>
-                  {account && (
-                    <span className="nav-pop-addr mono">
-                      {account.slice(0, 6)}…{account.slice(-4)}
-                    </span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  className="nav-pop-item"
-                  onClick={copyAddress}
-                  disabled={!account}
-                >
-                  <span>{copied ? "address copied" : "copy address"}</span>
-                  <span className="nav-pop-shortcut mono">⌘C</span>
-                </button>
-                <a
-                  className="nav-pop-item"
-                  href={`https://explorer.ens.dev/${fullName}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => setOpen(false)}
-                >
-                  <span>view on ENS explorer</span>
-                  <span className="nav-pop-shortcut">↗</span>
-                </a>
-                {account && (
-                  <a
-                    className="nav-pop-item"
-                    href={`https://sepolia.etherscan.io/address/${account}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={() => setOpen(false)}
-                  >
-                    <span>view on Etherscan</span>
-                    <span className="nav-pop-shortcut">↗</span>
-                  </a>
-                )}
-                <div className="nav-pop-divider" />
-                <button
-                  type="button"
-                  className="nav-pop-item nav-pop-item--danger"
-                  onClick={() => {
-                    setOpen(false);
-                    logout();
+        <div className="ds-nav-right">
+          {!label ? (
+            <>
+              <Link href="/pitch" className="ds-navlink">Pitch</Link>
+              <a
+                className="ds-navlink"
+                href="https://github.com/LeoFranklin015/ENSign"
+                target="_blank"
+                rel="noreferrer"
+              >
+                GitHub
+              </a>
+            </>
+          ) : (
+            <div ref={popRef} style={{ position: "relative" }}>
+              <button
+                type="button"
+                className="ds-btn ds-btn--ghost"
+                onClick={() => setOpen((v) => !v)}
+                aria-expanded={open}
+                aria-haspopup="menu"
+                title={fullName}
+                style={{ fontFamily: "var(--font-mono)", fontSize: 13, padding: "9px 15px" }}
+              >
+                <i className="ds-dot" />
+                {label}
+                <span style={{ color: "var(--on-bone-faint)" }}>.{PARENT_NAME}</span>
+              </button>
+
+              {open && (
+                <div
+                  role="menu"
+                  style={{
+                    position: "absolute", right: 0, top: "calc(100% + 9px)",
+                    minWidth: 264, padding: 7,
+                    background: "var(--paper)",
+                    border: "1px solid var(--rule-bone)",
+                    borderRadius: 13,
+                    boxShadow: "0 22px 44px -20px rgba(15,43,34,.28)",
+                    zIndex: 60,
                   }}
                 >
-                  <span>log out</span>
-                </button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <span aria-hidden="true" />
-        )}
+                  <div style={{ padding: "9px 11px 11px", borderBottom: "1px solid var(--rule-bone)", marginBottom: 5 }}>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>{fullName}</div>
+                    {account && (
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--on-bone-faint)", marginTop: 4 }}>
+                        {account.slice(0, 10)}…{account.slice(-8)}
+                      </div>
+                    )}
+                  </div>
+                  <PopItem onClick={copyAddress} disabled={!account}>
+                    {copied ? "Address copied" : "Copy address"}
+                  </PopItem>
+                  <PopItem href={`https://explorer.ens.dev/${fullName}`} onClick={() => setOpen(false)}>
+                    View on ENS explorer ↗
+                  </PopItem>
+                  {account && (
+                    <PopItem
+                      href={`https://sepolia.etherscan.io/address/${account}`}
+                      onClick={() => setOpen(false)}
+                    >
+                      View on Etherscan ↗
+                    </PopItem>
+                  )}
+                  <div style={{ height: 1, background: "var(--rule-bone)", margin: "5px 0" }} />
+                  <PopItem onClick={() => { setOpen(false); logout(); }} danger>
+                    Log out
+                  </PopItem>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-    </header>
+    </nav>
+  );
+}
+
+function PopItem({
+  children, onClick, href, disabled, danger,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  href?: string;
+  disabled?: boolean;
+  danger?: boolean;
+}) {
+  const style: React.CSSProperties = {
+    display: "block", width: "100%", textAlign: "left",
+    padding: "9px 11px", borderRadius: 8, border: 0,
+    background: "transparent", cursor: disabled ? "not-allowed" : "pointer",
+    font: "400 13.5px/1.3 var(--font-body)",
+    color: danger ? "#A34733" : "var(--on-bone-soft)",
+    opacity: disabled ? 0.45 : 1,
+    textDecoration: "none",
+  };
+  const hover = (e: React.MouseEvent<HTMLElement>, on: boolean) => {
+    (e.currentTarget as HTMLElement).style.background = on ? "rgba(20,32,27,.05)" : "transparent";
+  };
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer" style={style} onClick={onClick}
+         onMouseEnter={(e) => hover(e, true)} onMouseLeave={(e) => hover(e, false)}>
+        {children}
+      </a>
+    );
+  }
+  return (
+    <button type="button" style={style} onClick={onClick} disabled={disabled}
+            onMouseEnter={(e) => hover(e, true)} onMouseLeave={(e) => hover(e, false)}>
+      {children}
+    </button>
   );
 }
