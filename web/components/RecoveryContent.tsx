@@ -400,9 +400,8 @@ export default function RecoveryContent() {
         emailAddress: guardianEmail.trim() || `guardian@${domain}`,
         subject: `Approve recovery of ${label || "your ENSign account"}`,
         body: `Reply to this email to approve installing a new passkey on ${target}.`,
-        // Only used for the relayer's own DKIM bookkeeping; the proof itself is
-        // chain-agnostic and we verify it against Sepolia's registry.
-        chain: "baseSepolia",
+        // `chain` is injected server-side (ZKEMAIL_CHAIN) so it can match
+        // whatever the relayer's config.json actually defines.
       });
       setEmailRequestId(id);
       setEmailStatus("email sent — reply to it, then this will pick up the proof");

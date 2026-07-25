@@ -19,6 +19,12 @@ import { NextResponse } from "next/server";
 const RELAYER =
   process.env.ZKEMAIL_RELAYER ?? process.env.NEXT_PUBLIC_ZKEMAIL_RELAYER ?? "";
 
+/// Must name an entry in the relayer's config.json `chains` map, or it fails
+/// with "Chain configuration not found". It only selects which chain the
+/// relayer reads the DKIM registry on — the proof itself is chain-agnostic and
+/// we verify it against Sepolia regardless.
+const CHAIN = process.env.ZKEMAIL_CHAIN ?? "sepolia";
+
 const HEADERS = {
   "Content-Type": "application/json",
   "ngrok-skip-browser-warning": "true",
@@ -42,7 +48,7 @@ export async function POST(req: Request) {
       const res = await fetch(`${RELAYER}/submit`, {
         method: "POST",
         headers: HEADERS,
-        body: JSON.stringify(body ?? {}),
+        body: JSON.stringify({ chain: CHAIN, ...(body ?? {}) }),
       });
       const text = await res.text();
       if (!res.ok) {
