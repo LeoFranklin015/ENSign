@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { encodeAbiParameters, type Hex } from "viem";
+import { relayerUtils } from "@/lib/relayerUtils";
 
 /**
  * Turn a raw .eml into an EmailProof, server-side.
@@ -76,9 +77,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const utils = await import("@zk-email/relayer-utils");
-    // wasm-bindgen module: instantiate before any call.
-    await utils.init();
+    const utils = await relayerUtils();
 
     // Parse once: gives us the DKIM public key and signature.
     const parsed = (await utils.parseEmail(eml)) as {

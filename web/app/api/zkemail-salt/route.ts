@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { relayerUtils } from "@/lib/relayerUtils";
 
 /**
  * Derive a zkEmail accountSalt = Poseidon(emailAddress, accountCode).
@@ -26,10 +27,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const utils = await import("@zk-email/relayer-utils");
-    // wasm-bindgen module: the WASM is embedded but must be instantiated first,
-    // otherwise every call fails on `__wbindgen_malloc` being undefined.
-    await utils.init();
+    const utils = await relayerUtils();
     const accountSalt = (await utils.generateAccountSalt(
       emailAddress,
       accountCode,
