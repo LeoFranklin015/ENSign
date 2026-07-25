@@ -417,7 +417,7 @@ export default function AppContent() {
       </section>
 
       {/* ── capabilities ── */}
-      <section className="ds-band ds-band--forest">
+      <section className="ds-band ds-band--dark">
         <div className="ds-wrap">
           <p className="ds-eyebrow">What you get</p>
           <h2 className="ds-h2" style={{ maxWidth: "20ch" }}>
@@ -464,7 +464,7 @@ export default function AppContent() {
       </section>
 
       {/* ── close ── */}
-      <section className="ds-band ds-band--paper">
+      <section className="ds-band ds-band--close">
         <div className="ds-wrap" style={{ textAlign: "center" }}>
           <h2 className="ds-h2" style={{ maxWidth: "18ch", margin: "0 auto 18px" }}>
             Take a name. Get a wallet.
