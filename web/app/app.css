@@ -1196,6 +1196,45 @@
   background: linear-gradient(135deg, var(--surface), var(--bg-2));
 }
 
+/* ─── Primary-name row on the ens-name card ─── */
+
+.primary-row {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.primary-btn {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.primary-btn:hover:not(:disabled) {
+  border-color: var(--acc);
+  color: var(--acc);
+}
+.primary-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.primary-ok {
+  color: var(--acc);
+}
+
+.primary-err {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--danger);
+}
+
 /* Action links row */
 
 .actions-row {

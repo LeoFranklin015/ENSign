@@ -4,7 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import "../app/app.css";
-import { PARENT_NAME, publicClient, resolveLabel } from "@/lib/ensign";
+import {
+  PARENT_NAME,
+  publicClient,
+  resolveLabel,
+  getPrimaryName,
+  setPrimaryNameData,
+  sendUserOp,
+  REVERSE_REGISTRAR,
+} from "@/lib/ensign";
 import { getSession, type Session } from "@/lib/session";
 import { Nav } from "@/components/Nav";
 
@@ -14,6 +22,16 @@ export default function DashboardContent() {
   const [account, setAccount] = useState<`0x${string}` | null>(null);
   const [balance, setBalance] = useState<bigint | null>(null);
   const [loading, setLoading] = useState(true);
+
+  type PrimaryState =
+    | { kind: "checking" }
+    | { kind: "unset" }
+    | { kind: "pending" }
+    | { kind: "set"; name: string }
+    | { kind: "error"; message: string };
+
+  const [primary, setPrimary] = useState<PrimaryState>({ kind: "checking" });
+  const [primaryTx, setPrimaryTx] = useState<`0x${string}` | null>(null);
 
   useEffect(() => {
     const s = getSession();
@@ -26,6 +44,8 @@ export default function DashboardContent() {
       try {
         const r = await resolveLabel(s.label);
         setAccount(r.account);
+        const p = await getPrimaryName(r.account);
+        setPrimary(p ? { kind: "set", name: p } : { kind: "unset" });
         const b = await publicClient.getBalance({ address: r.account });
         setBalance(b);
       } catch {
@@ -35,6 +55,28 @@ export default function DashboardContent() {
       }
     })();
   }, [router]);
+
+  async function onSetPrimary() {
+    if (!session || !account) return;
+    const name = `${session.label}.${PARENT_NAME}`;
+    setPrimary({ kind: "pending" });
+    try {
+      const res = await sendUserOp({
+        account,
+        credentialId: session.credentialId,
+        target: REVERSE_REGISTRAR,
+        data: setPrimaryNameData(name),
+      });
+      if (!res.success) throw new Error("transaction reverted");
+      setPrimaryTx(res.tx);
+      const now = await getPrimaryName(account);
+      setPrimary(now ? { kind: "set", name: now } : { kind: "unset" });
+    } catch (e) {
+      const raw = (e as Error)?.message ?? "failed";
+      const message = raw.length > 90 ? raw.slice(0, 90) + "…" : raw;
+      setPrimary({ kind: "error", message });
+    }
+  }
 
   if (!session) {
     return (
@@ -109,6 +151,51 @@ export default function DashboardContent() {
             <p className="card-meta">
               addr(node) · text("credentialId")
             </p>
+            {account && (
+              <div className="primary-row">
+                {primary.kind === "checking" && (
+                  <p className="card-meta">primary name · checking…</p>
+                )}
+                {primary.kind === "set" && primary.name === fullName && (
+                  <p className="card-meta primary-ok">
+                    ✓ primary name
+                    {primaryTx && (
+                      <>
+                        {" · "}
+                        <a
+                          href={`https://sepolia.etherscan.io/tx/${primaryTx}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          tx
+                        </a>
+                      </>
+                    )}
+                  </p>
+                )}
+                {primary.kind === "set" && primary.name !== fullName && (
+                  <>
+                    <p className="card-meta">primary: {primary.name}</p>
+                    <button className="primary-btn" onClick={onSetPrimary}>
+                      make {fullName} primary
+                    </button>
+                  </>
+                )}
+                {(primary.kind === "unset" || primary.kind === "error") && (
+                  <button className="primary-btn" onClick={onSetPrimary}>
+                    set as primary name
+                  </button>
+                )}
+                {primary.kind === "pending" && (
+                  <button className="primary-btn" disabled>
+                    setting… approve with your passkey
+                  </button>
+                )}
+                {primary.kind === "error" && (
+                  <p className="primary-err">{primary.message}</p>
+                )}
+              </div>
+            )}
           </article>
         </div>
 
