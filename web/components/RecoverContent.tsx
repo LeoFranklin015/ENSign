@@ -191,9 +191,11 @@ export default function RecoverContent() {
   const [note, setNote] = useState<string | null>(null);
   const [accountCode, setAccountCode] = useState("");
   const [emailCommand, setEmailCommand] = useState<string | null>(null);
-  const [tab, setTab] = useState<"wallet" | "email">("wallet");
+  const [tab, setTab] = useState<"email" | "wallet">("email");
   const [guardianEmail, setGuardianEmail] = useState("");
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
+  const [done, setDone] = useState<{ tx: Hex } | null>(null);
+  const [phase, setPhase] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
@@ -471,18 +473,23 @@ export default function RecoverContent() {
   }
 
   /**
-   * The platform broadcasts both transactions. Whoever is recovering has lost
-   * a device and may hold no ETH at all; a guardian is doing a favour. Neither
-   * should need gas — and the manager verifies everything on-chain regardless.
+   * Submit and execute as one action.
+   *
+   * Splitting them exposed a contract detail the person recovering shouldn't
+   * have to care about: they want their account back, not two transactions.
+   * If the guardians carry a timelock we simply wait it out here, so the only
+   * difference they see is how long the button spins.
    */
-  async function submit() {
+  async function recoverNow() {
     if (!newKey || !target) return;
-    setBusy("submit"); setErr(null);
+    setBusy("recover"); setErr(null);
     try {
       const subject = encodeAbiParameters(
         [{ type: "bytes32" }, { type: "bytes32" }], [newKey.qx, newKey.qy],
       );
-      const res = await fetch("/api/recovery-submit", {
+
+      setPhase("Submitting the request…");
+      const reqRes = await fetch("/api/recovery-submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -492,8 +499,8 @@ export default function RecoverContent() {
           approvals: sigs.map((x) => ({ recoveryId: x.recoveryId, proof: x.proof })),
         }),
       });
-      const json = (await res.json()) as { tx?: Hex; error?: string };
-      if (!res.ok || !json.tx) throw new Error(json.error ?? `HTTP ${res.status}`);
+      const reqJson = (await reqRes.json()) as { tx?: Hex; error?: string };
+      if (!reqRes.ok || !reqJson.tx) throw new Error(reqJson.error ?? `HTTP ${reqRes.status}`);
 
       const id = keccak256(
         encodeAbiParameters(
@@ -506,27 +513,30 @@ export default function RecoverContent() {
       }) as { account: Address; executeAt: bigint; subject: Hex };
       setRequestId(id);
       setExecuteAt(Number(req.executeAt));
-      setNote(`request queued · ${json.tx.slice(0, 10)}…`);
-    } catch (e) {
-      setErr(`request failed: ${(e as Error).message}`);
-    } finally { setBusy(null); }
-  }
 
-  async function execute() {
-    if (!requestId) return;
-    setBusy("execute"); setErr(null);
-    try {
-      const res = await fetch("/api/recovery-submit", {
+      // Wait out whatever timelock the guardians carry.
+      const waitUntil = Number(req.executeAt) * 1000;
+      while (Date.now() < waitUntil) {
+        const left = Math.ceil((waitUntil - Date.now()) / 1000);
+        setPhase(`Timelock — executing in ${left}s`);
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+
+      setPhase("Installing the new passkey…");
+      const exRes = await fetch("/api/recovery-submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "execute", requestId }),
+        body: JSON.stringify({ action: "execute", requestId: id }),
       });
-      const json = (await res.json()) as { tx?: Hex; error?: string };
-      if (!res.ok || !json.tx) throw new Error(json.error ?? `HTTP ${res.status}`);
-      setNote("recovered — the new passkey now controls this account");
+      const exJson = (await exRes.json()) as { tx?: Hex; error?: string };
+      if (!exRes.ok || !exJson.tx) throw new Error(exJson.error ?? `HTTP ${exRes.status}`);
+
       setRequestId(null);
+      setPhase(null);
+      setDone({ tx: exJson.tx });
     } catch (e) {
-      setErr(`execute failed: ${(e as Error).message}`);
+      setErr(`recovery failed: ${(e as Error).message}`);
+      setPhase(null);
     } finally { setBusy(null); }
   }
 
@@ -645,16 +655,16 @@ export default function RecoverContent() {
                 {/* whichever kind of guardian is standing here */}
                 <div className="ds-tabs" style={{ marginBottom: 16 }}>
                   <button
-                    className={`ds-tab-btn ${tab === "wallet" ? "ds-tab-btn--on" : ""}`}
-                    onClick={() => setTab("wallet")}
-                  >
-                    Wallet
-                  </button>
-                  <button
                     className={`ds-tab-btn ${tab === "email" ? "ds-tab-btn--on" : ""}`}
                     onClick={() => setTab("email")}
                   >
                     Email
+                  </button>
+                  <button
+                    className={`ds-tab-btn ${tab === "wallet" ? "ds-tab-btn--on" : ""}`}
+                    onClick={() => setTab("wallet")}
+                  >
+                    Wallet
                   </button>
                 </div>
 
@@ -821,31 +831,83 @@ export default function RecoverContent() {
               <div className={`ds-step ${enough ? "" : "ds-step--muted"}`}>
                 <div className="ds-step-h">
                   <span className="ds-step-n">3</span>
-                  <h4>Submit and execute</h4>
-                  {requestId && (
-                    <span className="ds-step-done">
-                      {ready ? "ready" : `${Math.max(0, executeAt - now)}s`}
-                    </span>
-                  )}
+                  <h4>Get the account back</h4>
+                  {enough && <span className="ds-step-done">ready</span>}
                 </div>
-                <div className="ag-row">
-                  <button className="ds-btn" disabled={!!busy || !enough || !!requestId} onClick={submit}>
-                    {busy === "submit" ? "…" : "Submit request"}
-                  </button>
-                  {requestId && (
-                    <button className="ds-btn" disabled={!!busy || !ready} onClick={execute}>
-                      {busy === "execute" ? "…" : "Execute"}
-                    </button>
-                  )}
-                </div>
+
+                <button
+                  className="ds-btn ds-btn--block"
+                  disabled={!!busy || !enough}
+                  onClick={recoverNow}
+                >
+                  {busy === "recover" ? "Recovering…" : "Recover this account"}
+                </button>
+
+                {phase && (
+                  <div className="ds-prog">
+                    <div className="ds-prog-bar">
+                      <div className="ds-prog-fill ds-prog-fill--live" style={{ width: "66%" }} />
+                    </div>
+                    <p className="ds-prog-note">{phase}</p>
+                  </div>
+                )}
+
                 <p className="ag-hint" style={{ marginTop: 10 }}>
-                  The account owner can cancel during the timelock from any signed-in device.
+                  We submit and execute for you — no gas needed. If the guardians set a
+                  timelock, this waits it out. The owner can still cancel during that window.
                 </p>
               </div>
+
             </section>
           </div>
         )}
       </main>
+
+      {/* ── recovered ────────────────────────────────────────────────── */}
+      {done && (
+        <div className="ds-modal-bg">
+          <div className="ds-modal" role="dialog" aria-modal>
+            <div className="ds-won">
+              <div className="ds-won-tick" aria-hidden>✓</div>
+              <p className="ds-won-name">{displayName || short(target ?? "")}</p>
+              <p className="ds-won-sub">is yours again.</p>
+
+              <div className="ds-off-why" style={{ marginTop: 22, textAlign: "left" }}>
+                <div>
+                  <b>key</b>
+                  <span>
+                    The passkey you made on this device is now an owner of the account.
+                  </span>
+                </div>
+                <div>
+                  <b>next</b>
+                  <span>
+                    Sign in with it, then remove the old key from your wallet settings.
+                  </span>
+                </div>
+              </div>
+
+              <p className="ds-won-addr" style={{ marginTop: 14 }}>
+                <a
+                  href={`https://sepolia.etherscan.io/tx/${done.tx}`}
+                  target="_blank" rel="noreferrer"
+                >
+                  {done.tx.slice(0, 14)}…{done.tx.slice(-10)} ↗
+                </a>
+              </p>
+
+              <div className="ds-won-actions">
+                <button className="ds-btn ds-btn--ghost" onClick={() => setDone(null)}>
+                  Close
+                </button>
+                <a className="ds-btn" href="/">
+                  Sign in <span aria-hidden>→</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer className="ds-footer">
         <div className="ds-footer-in">
