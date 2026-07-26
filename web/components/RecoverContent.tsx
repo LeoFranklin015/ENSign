@@ -12,7 +12,12 @@ import {
   type Hex,
 } from "viem";
 import "../app/system.css";
-import { connectInjected, connectWalletConnect, type Connection } from "@/lib/guardianWallet";
+import {
+  connectInjected,
+  connectWalletConnect,
+  ensureChain,
+  type Connection,
+} from "@/lib/guardianWallet";
 import {
   CHAIN,
   CHAIN_ID,
@@ -261,6 +266,8 @@ export default function RecoverContent() {
     try {
       const c = conn ?? await connectInjected(CHAIN_ID);
       if (!conn) setConn(c);
+      // The wallet may have moved chains since it was connected.
+      await ensureChain(c.provider, CHAIN_ID);
       const addr = c.address;
       const client = createWalletClient({ chain: CHAIN, transport: custom(c.provider) });
 
@@ -448,6 +455,8 @@ export default function RecoverContent() {
     try {
       const c = conn ?? await connectInjected(CHAIN_ID);
       if (!conn) setConn(c);
+      // The wallet may have moved chains since it was connected.
+      await ensureChain(c.provider, CHAIN_ID);
       const addr = c.address;
       const client = createWalletClient({ chain: CHAIN, transport: custom(c.provider) });
       const subject = encodeAbiParameters(
@@ -483,6 +492,8 @@ export default function RecoverContent() {
     try {
       const c = conn ?? await connectInjected(CHAIN_ID);
       if (!conn) setConn(c);
+      // The wallet may have moved chains since it was connected.
+      await ensureChain(c.provider, CHAIN_ID);
       const addr = c.address;
       const client = createWalletClient({ chain: CHAIN, transport: custom(c.provider) });
       const hash = await client.writeContract({
