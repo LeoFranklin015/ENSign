@@ -13,6 +13,7 @@
 
 import {
   createPublicClient,
+  fallback,
   http,
   parseAbi,
   encodeAbiParameters,
@@ -61,15 +62,37 @@ export const jawFactoryAbi = parseAbi([
   "function createAccount(bytes[] owners, uint256 nonce) payable returns (address)",
 ]);
 
+/**
+ * Browser-side reads. Same reasoning as lib/serverClients: a single provider
+ * running out of credits or throttling shouldn't break the app, so the
+ * configured endpoint leads and public ones back it up. `rank: false` keeps a
+ * paid endpoint primary instead of latency-sorting it away.
+ */
+const PUBLIC_FALLBACKS = [
+  "https://ethereum-sepolia-rpc.publicnode.com",
+  "https://sepolia.drpc.org",
+];
+
+function readTransport(primary: string | undefined, backups: string[]) {
+  const urls = [primary, ...backups].filter(Boolean) as string[];
+  return fallback(
+    urls.map((u) => http(u, { timeout: 12_000, retryCount: 2 })),
+    { rank: false, retryCount: 1 },
+  );
+}
+
 export const publicClient = createPublicClient({
   chain: CHAIN,
-  transport: http(RPC_URL),
+  transport: readTransport(RPC_URL, PUBLIC_FALLBACKS),
 });
 
 /// Public client for whichever chain the dApp is signing on.
 export function clientForChain(chainId: number) {
   if (chainId === BASE_SEPOLIA_CHAIN_ID) {
-    return createPublicClient({ chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC_URL) });
+    return createPublicClient({
+      chain: baseSepolia,
+      transport: readTransport(BASE_SEPOLIA_RPC_URL, ["https://sepolia.base.org"]),
+    });
   }
   return publicClient;
 }
