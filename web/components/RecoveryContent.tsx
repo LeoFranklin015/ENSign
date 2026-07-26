@@ -471,6 +471,11 @@ export default function RecoveryContent() {
     const email = guardianEmail.trim().toLowerCase();
     const domain = email.split("@")[1];
     if (!domain) { setErr("enter a full email address"); return; }
+    const gl = guardianLabel.trim().toLowerCase();
+    if (!/^[a-z0-9-]{1,63}$/.test(gl)) {
+      setErr("name must be lowercase letters, digits or hyphens"); return;
+    }
+    if (!account || !credentialId) return;
     setBusy("add email guardian"); setErr(null); setNote(null);
     try {
       // The account code is the guardian's secret half of their identity: it is
@@ -485,16 +490,45 @@ export default function RecoveryContent() {
         [{ type: "bytes32" }, { type: "string" }], [salt, domain],
       );
       const delay = Math.max(0, Math.floor(Number(delayMins) || 0)) * 60;
-      const ok = await ownerCall(`add email guardian ${email}`,
-        encodeFunctionData({
+
+      // Give the email guardian a name in the tree too, so every guardian is
+      // visible in one place. It is owned by the account rather than the
+      // guardian — an email guardian has no wallet to own it, and nothing reads
+      // this owner: the zkEmail commitment below is what actually authorises.
+      const r = await fetch("/api/recovery-namespace", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          label, account, guardianLabel: gl, guardianAddress: account,
+        }),
+      });
+      const ns = await r.json();
+      if (!r.ok) throw new Error(ns.error ?? "could not mint the guardian name");
+
+      const calls: Array<{ to: Address; data: Hex }> = [];
+      if (ns.needsSetSubregistry) {
+        calls.push({
+          to: ns.storageRegistry as Address,
+          data: encodeFunctionData({
+            abi: storageAbi, functionName: "setSubregistry",
+            args: [BigInt(ns.userTokenId), ns.namespaceRegistry as Address],
+          }),
+        });
+      }
+      calls.push({
+        to: MANAGER,
+        data: encodeFunctionData({
           abi: managerAbi, functionName: "addRecovery",
           args: [ZKEMAIL_PROVIDER, commitment, delay],
-        }), MANAGER);
-      if (ok) {
-        setNote("email guardian registered");
-        setDrawer(false);
-        setShowCode(code);
-      }
+        }),
+      });
+
+      await sendUserOp({ account, credentialId, calls });
+      setNote(`${ns.guardianName} added ✓`);
+      setGuardianLabel("");
+      await refresh();
+      setDrawer(false);
+      setShowCode(code);
     } catch (e) {
       setErr(`add email guardian failed: ${(e as Error).message}`);
     } finally { setBusy(null); }
@@ -1149,6 +1183,18 @@ export default function RecoveryContent() {
 
               {pane === "email" && (
                 <div className="ag-section">
+                  <div className="ag-field">
+                    <label className="ag-field-label">Call them</label>
+                    <input
+                      className="ag-input" placeholder="mom"
+                      value={guardianLabel}
+                      onChange={(e) => setGuardianLabel(e.target.value)}
+                    />
+                    <span className="ag-hint">
+                      becomes {guardianLabel.trim().toLowerCase() || "mom"}.recovery.
+                      {label || "you"}.{PARENT_NAME}
+                    </span>
+                  </div>
                   <div className="ag-field">
                     <label className="ag-field-label">Their email address</label>
                     <input
