@@ -7,7 +7,8 @@
 /// Bookmarklet URLs themselves bypass `script-src` because they're treated as
 /// user-initiated. But anything they then *load* externally (like fetching
 /// `/connector.js`) gets blocked by CSP. So we ship the code inside the URL.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { BookmarkletLink } from "@/components/BookmarkletLink";
 
 export function BookmarkletCard() {
   const origin = window.location.origin;
@@ -37,15 +38,6 @@ export function BookmarkletCard() {
     return "javascript:" + encodeURIComponent(wrapped);
   }, [origin, connectorCode]);
 
-  // React 19 strips `href="javascript:..."` as a security measure. Set the
-  // attribute imperatively so the bookmark drag picks up the literal URL.
-  const linkRef = useRef<HTMLAnchorElement>(null);
-  useEffect(() => {
-    if (linkRef.current) {
-      linkRef.current.setAttribute("href", bookmarklet);
-    }
-  }, [bookmarklet]);
-
   const [copied, setCopied] = useState(false);
   function copyCode() {
     navigator.clipboard
@@ -61,15 +53,15 @@ export function BookmarkletCard() {
 
   return (
     <div className="bookmarklet-hero">
-      <a
-        ref={linkRef}
+      <BookmarkletLink
+        href={bookmarklet}
         className="bookmarklet bookmarklet-big"
         draggable={ready}
         aria-disabled={!ready}
         style={ready ? undefined : { opacity: 0.5, cursor: "wait" }}
       >
         {ready ? "ENSign" : "loading…"}
-      </a>
+      </BookmarkletLink>
       <span className="muted small bookmarklet-hint">
         {ready ? "drag this to your bookmarks bar ↗" : ""}
       </span>

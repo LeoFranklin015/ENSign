@@ -14,6 +14,7 @@ import {
 import { getSession, saveSession } from "@/lib/session";
 import { Nav } from "@/components/Nav";
 import { MultiStepLoader, type Step } from "@/components/MultiStepLoader";
+import { BookmarkletLink } from "@/components/BookmarkletLink";
 
 const SIGNUP_STEPS: Step[] = [
   {
@@ -522,15 +523,14 @@ export default function AppContent() {
               <div className="ds-won-drag ds-glow">
                 <p className="ds-won-drag-k">One last thing</p>
                 <div className="ds-won-drag-row">
-                  <a
+                  <BookmarkletLink
                     className="ds-won-pill"
                     href={bookmarklet}
                     draggable
-                    onClick={(e) => e.preventDefault()}
                     title="Drag me to your bookmarks bar"
                   >
                     ◈ ENSign
-                  </a>
+                  </BookmarkletLink>
                   <span className="ds-won-hint">
                     Drag this to your bookmarks bar to use your name on any dApp.
                   </span>
