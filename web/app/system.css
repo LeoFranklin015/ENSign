@@ -1116,3 +1116,269 @@
 @media (prefers-reduced-motion: reduce) {
   .ds-in { animation: none; opacity: 1; transform: none; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Agents page — the component keeps its markup; the system takes over its
+   appearance. Every rule is .ds-scoped so the legacy dark app.css can't win,
+   and every property app.css sets is restated (an unset property inherits).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.ds .agents-toolbar { display: flex; gap: 10px; margin-bottom: 22px; }
+.ds .agents-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.ds .muted { color: var(--on-paper-faint); font-size: 14px; }
+.ds .mono { font-family: var(--font-mono); }
+.ds .small { font-size: 12px; }
+
+.ds .agents-note, .ds .agents-err {
+  padding: 12px 15px; border-radius: 13px; margin-bottom: 16px;
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.5;
+  word-break: break-word;
+}
+.ds .agents-note {
+  background: rgba(47,158,99,.1); border: 1px solid rgba(47,158,99,.26); color: var(--data);
+}
+.ds .agents-err {
+  background: rgba(196,85,63,.08); border: 1px solid rgba(196,85,63,.24); color: var(--alert);
+}
+
+/* ── agent card ────────────────────────────────────────────────────────── */
+
+.ds .agent-card {
+  display: flex; flex-direction: column; position: relative; overflow: hidden;
+  background: var(--card); border: 1px solid var(--rule-soft);
+  border-radius: 20px; padding: 22px;
+  transition: transform .2s cubic-bezier(.2,.7,.3,1), border-color .2s, box-shadow .2s;
+}
+.ds .agent-card:hover {
+  transform: translateY(-3px); border-color: rgba(203,246,60,.6);
+  box-shadow: 0 20px 40px -28px rgba(22,48,31,.42);
+}
+.ds .agent-card-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.ds .agent-card-label {
+  font-family: var(--font-mono); font-size: 14px; font-weight: 500;
+  color: var(--on-paper); letter-spacing: -0.01em;
+}
+.ds .agent-card-sub {
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--on-paper-faint);
+  margin-top: 4px; text-decoration: none; display: block;
+}
+.ds .agent-card-sub:hover { color: var(--on-paper-soft); }
+
+.ds .agent-status {
+  margin-left: auto; flex: none;
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .1em;
+  text-transform: uppercase; padding: 5px 10px; border-radius: 7px;
+  background: rgba(47,158,99,.12); color: var(--data); border: 1px solid rgba(47,158,99,.26);
+}
+.ds .agent-status--revoked,
+.ds .agent-status--expired {
+  background: rgba(196,85,63,.1); color: var(--alert); border-color: rgba(196,85,63,.24);
+}
+
+.ds .agent-card-meta { display: grid; gap: 9px; margin-bottom: 14px; }
+.ds .agent-card-meta > div,
+.ds .agent-card-ids > div {
+  display: flex; justify-content: space-between; gap: 14px; align-items: baseline;
+  font-size: 12.5px; color: var(--on-paper-soft);
+}
+.ds .agent-card-meta b, .ds .agent-card-ids b {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--on-paper);
+  text-align: right; word-break: break-all;
+}
+.ds .agent-card-ids {
+  display: grid; gap: 8px; padding-top: 13px; margin-bottom: 14px;
+  border-top: 1px solid var(--rule-soft);
+}
+.ds .agent-link { color: var(--forest); text-decoration: none; }
+.ds .agent-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.ds .agent-card-actions {
+  display: flex; gap: 9px; margin-top: auto; padding-top: 16px;
+  border-top: 1px solid var(--rule-soft);
+}
+
+/* execution rows inside a card */
+.ds .agent-exec { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--rule-soft); }
+.ds .agent-exec-eyebrow {
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--on-paper-faint); margin-bottom: 8px;
+}
+.ds .agent-exec-row {
+  display: flex; align-items: center; gap: 10px; padding: 7px 0;
+  font-size: 12px; color: var(--on-paper-soft);
+}
+.ds .agent-exec-tx, .ds .agent-exec-tx-mono {
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--forest); text-decoration: none;
+}
+.ds .agent-exec-tx:hover { text-decoration: underline; text-underline-offset: 3px; }
+.ds .agent-exec-when, .ds .agent-exec-meta {
+  font-family: var(--font-mono); font-size: 11px; color: var(--on-paper-faint);
+}
+.ds .agent-exec-when { margin-left: auto; }
+.ds .agent-exec-arrow { color: var(--on-paper-faint); }
+.ds .agent-exec-more {
+  background: none; border: 0; padding: 6px 0; cursor: pointer;
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--forest);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+
+/* ── buttons the component already asks for ────────────────────────────── */
+
+.ds .action {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  padding: 12px 20px; border-radius: var(--r-pill); border: 0;
+  background: linear-gradient(180deg, var(--lime) 0%, var(--lime-deep) 100%);
+  color: var(--lime-ink); font: 500 14px/1 var(--font-body); cursor: pointer;
+  box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 8px 20px -12px var(--lime-glow);
+  transition: transform .18s, box-shadow .18s;
+}
+.ds .action:hover:not(:disabled) { transform: translateY(-1.5px); }
+.ds .action:disabled {
+  opacity: .45; cursor: not-allowed; transform: none;
+  background: var(--paper-2); color: var(--on-paper-faint); box-shadow: none;
+}
+.ds .ghost, .ds .ag-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 18px; border-radius: var(--r-pill);
+  border: 1px solid var(--rule); background: #fff; color: var(--on-paper);
+  font: 500 13.5px/1 var(--font-body); cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.ds .ghost:hover:not(:disabled), .ds .ag-ghost:hover:not(:disabled) {
+  background: var(--card-2); border-color: rgba(22,48,31,.24);
+}
+.ds .ghost:disabled, .ds .ag-ghost:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ── modal chrome ──────────────────────────────────────────────────────── */
+
+.ds .ag-modal-bg {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(14,33,22,.34); backdrop-filter: blur(6px);
+  display: grid; place-items: center; padding: 24px;
+  animation: dsfade .22s ease-out; overflow-y: auto;
+}
+.ds .ag-modal {
+  width: 100%; max-width: 560px; margin: auto;
+  background: var(--card); border: 1px solid var(--rule-soft);
+  border-radius: var(--r-card); overflow: hidden;
+  box-shadow: 0 40px 80px -30px rgba(14,33,22,.5);
+  animation: dspop .26s cubic-bezier(.2,.8,.3,1);
+}
+.ds .ag-modal-head {
+  padding: 22px 24px 16px; border-bottom: 1px solid var(--rule-soft); position: relative;
+}
+.ds .ag-modal-body { padding: 22px 24px; display: grid; gap: 18px; }
+.ds .ag-modal-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+  padding: 16px 24px; border-top: 1px solid var(--rule-soft); background: var(--card-2);
+}
+.ds .ag-x {
+  position: absolute; top: 18px; right: 18px;
+  width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+  border: 1px solid var(--rule-soft); background: var(--card-2);
+  color: var(--on-paper-soft); font-size: 15px; line-height: 1;
+  display: grid; place-items: center;
+}
+.ds .ag-x:hover { background: var(--paper-2); }
+
+.ds .ag-kicker {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--on-paper-faint); margin: 0 0 8px;
+}
+.ds .ag-h2 {
+  font-family: var(--font-display); font-weight: 600; font-size: 24px;
+  letter-spacing: -0.028em; color: var(--forest); margin: 0;
+}
+
+/* ── form controls ─────────────────────────────────────────────────────── */
+
+.ds .ag-section { display: grid; gap: 12px; }
+.ds .ag-section-title {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .15em;
+  text-transform: uppercase; color: var(--on-paper-faint); margin: 0;
+}
+.ds .ag-field { display: grid; gap: 7px; }
+.ds .ag-field-label, .ds .ag-prelabel {
+  font-size: 12.5px; color: var(--on-paper-soft);
+}
+.ds .ag-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.ds .ag-input {
+  width: 100%; padding: 12px 14px; border-radius: 12px;
+  border: 1px solid var(--rule); background: var(--card-2);
+  font: 400 14px/1.3 var(--font-mono); color: var(--on-paper);
+  outline: 0; transition: border-color .16s, box-shadow .16s;
+}
+.ds .ag-input::placeholder { color: var(--on-paper-faint); }
+.ds .ag-input:focus {
+  border-color: rgba(22,48,31,.3); box-shadow: 0 0 0 4px rgba(203,246,60,.24);
+}
+.ds .ag-input--inline { width: auto; flex: 1; min-width: 120px; }
+.ds .ag-input--num { width: 96px; flex: none; text-align: right; }
+
+.ds .ag-bigfield {
+  display: flex; align-items: center; padding: 0 15px;
+  border: 1px solid var(--rule); border-radius: 14px; background: var(--card-2);
+  transition: border-color .16s, box-shadow .16s;
+}
+.ds .ag-bigfield:focus-within {
+  border-color: rgba(22,48,31,.3); box-shadow: 0 0 0 4px rgba(203,246,60,.24);
+}
+.ds .ag-bigfield-input {
+  flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+  padding: 14px 0; font: 500 16px/1 var(--font-mono); color: var(--on-paper);
+}
+.ds .ag-bigfield-suffix {
+  font: 500 16px/1 var(--font-mono); color: var(--on-paper-faint); white-space: nowrap;
+}
+.ds .ag-decimals { font-family: var(--font-mono); font-size: 12px; color: var(--on-paper-faint); }
+
+.ds .ag-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.ds .ag-pills--tight { gap: 6px; }
+.ds .ag-pill {
+  padding: 8px 14px; border-radius: var(--r-pill); cursor: pointer;
+  border: 1px solid var(--rule); background: #fff;
+  font: 500 12.5px/1 var(--font-body); color: var(--on-paper-soft);
+  transition: background .15s, border-color .15s, color .15s;
+}
+.ds .ag-pill:hover { border-color: rgba(22,48,31,.24); color: var(--on-paper); }
+.ds .ag-pill[aria-pressed="true"], .ds .ag-pill.is-on, .ds .ag-pill--on {
+  background: var(--forest); border-color: var(--forest); color: var(--lime);
+}
+
+.ds .ag-preview {
+  background: var(--forest); border-radius: 16px; padding: 16px 18px; color: var(--on-dark);
+}
+.ds .ag-preview-body {
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.65;
+  color: var(--on-dark-soft); white-space: pre-wrap; word-break: break-all; margin: 0;
+}
+.ds .ag-hint {
+  font-size: 12px; line-height: 1.55; color: var(--on-paper-faint); margin: 0;
+}
+.ds .ag-error {
+  padding: 11px 13px; border-radius: 11px;
+  background: rgba(196,85,63,.08); border: 1px solid rgba(196,85,63,.22);
+  color: var(--alert); font: 400 12.5px/1.5 var(--font-mono); word-break: break-word;
+}
+.ds .ag-loader-wrap { padding: 4px 0; }
+
+/* ── execution history list ────────────────────────────────────────────── */
+
+.ds .ag-exec-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.ds .ag-exec-item {
+  background: var(--card-2); border: 1px solid var(--rule-soft);
+  border-radius: 13px; padding: 13px 15px;
+}
+.ds .ag-exec-item-head { display: flex; align-items: center; gap: 10px; }
+.ds .ag-exec-idx {
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--lime);
+  background: var(--forest); padding: 3px 8px; border-radius: 6px; flex: none;
+}
+.ds .ag-exec-when { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--on-paper-faint); }
+.ds .ag-exec-item-meta {
+  margin-top: 8px; font-family: var(--font-mono); font-size: 11.5px;
+  color: var(--on-paper-soft); line-height: 1.6; word-break: break-all;
+}
+
+@media (max-width: 900px) { .ds .agents-list { grid-template-columns: 1fr; } }

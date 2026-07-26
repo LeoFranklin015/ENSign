@@ -13,7 +13,7 @@ import {
   type Address,
   type Hex,
 } from "viem";
-import "../app/app.css";
+import "../app/system.css";
 import { Nav } from "@/components/Nav";
 import { MultiStepLoader, type Step } from "@/components/MultiStepLoader";
 import { getSession } from "@/lib/session";
@@ -297,33 +297,30 @@ export default function AgentsContent() {
 
   if (!session) {
     return (
-      <div className="app-shell">
+      <div className="ds ds-page">
         <Nav />
-        <main className="main"><p className="hero-sub">redirecting…</p></main>
+        <main className="ds-wrap ds-app"><p className="ds-lede">Redirecting…</p></main>
       </div>
     );
   }
 
   return (
-    <div className="app-shell">
+    <div className="ds ds-page">
       <Nav />
-      <main className="main">
-        <section className="hero compact">
-          <p className="kicker">delegate</p>
-          <h1 className="hero-title-sm">
-            agents on <em>your</em> account.
-          </h1>
-          <p className="hero-sub">
-            Each agent gets an ENS subname under <strong>{session.label}.{PARENT_NAME}</strong>.
-            Permissions are enforced on-chain by the manager — funds never leave your account.
-          </p>
-        </section>
-
-        <div className="agents-toolbar">
-          <button className="action" onClick={() => setShowCreate(true)}>
-            + create agent
-          </button>
-        </div>
+      <main className="ds-wrap ds-app">
+        <header className="ds-idcard">
+          <div>
+            <h1 className="ds-idcard-name">Agents</h1>
+            <p className="ds-idcard-addr">
+              each one a subname under {session.label}.{PARENT_NAME} · enforced on-chain
+            </p>
+          </div>
+          <div className="ds-idcard-actions">
+            <button className="ds-btn" onClick={() => setShowCreate(true)}>
+              Create agent <span aria-hidden>+</span>
+            </button>
+          </div>
+        </header>
 
         {execNote && <div className="agents-note">executed · {execNote}</div>}
         {error && <div className="agents-err">{error}</div>}
@@ -345,6 +342,24 @@ export default function AgentsContent() {
           ))}
         </div>
       </main>
+
+      <footer className="ds-footer">
+        <div className="ds-footer-in">
+          <span className="ds-footer-who">
+            <i /> Signed in as <b>{session.label}.{PARENT_NAME}</b>
+          </span>
+          <span className="ds-footer-links">
+            <a href="/dashboard">Wallet</a>
+            <a href="/recovery">Recovery</a>
+            <a
+              href="https://github.com/LeoFranklin015/ENSign"
+              target="_blank" rel="noreferrer"
+            >
+              GitHub
+            </a>
+          </span>
+        </div>
+      </footer>
 
       {showCreate && session && (
         <CreateAgentModal
