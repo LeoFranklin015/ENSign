@@ -826,3 +826,293 @@
   .ds-glow, .ds-glow::after, .ds-won-pill { animation: none; }
   .ds-glow { border-color: rgba(203, 246, 60, .6); }
 }
+
+/* ── dashboard ─────────────────────────────────────────────────────────────
+   The name is the subject and everything else hangs off it, so the tree is
+   the page rather than an illustration beside it.                           */
+
+.ds-dash { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; align-items: start; }
+
+.ds-idcard {
+  display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap;
+  padding-bottom: 22px; margin-bottom: 24px;
+  border-bottom: 1px solid var(--rule);
+}
+.ds-idcard-name {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(30px, 3.4vw, 44px); letter-spacing: -0.032em;
+  color: var(--forest); margin: 0; line-height: 1;
+}
+.ds-idcard-name span { color: var(--on-paper-faint); }
+.ds-idcard-addr {
+  font-family: var(--font-mono); font-size: 12.5px;
+  color: var(--on-paper-faint); margin: 9px 0 0;
+}
+.ds-idcard-addr a { color: inherit; }
+.ds-idcard-actions { margin-left: auto; display: flex; gap: 9px; }
+
+/* tree nodes that are actually navigation */
+.ds-navnode {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 15px; border-radius: 12px;
+  color: var(--on-dark); text-decoration: none;
+  font-family: var(--font-mono); font-size: 14px;
+  transition: background .16s, transform .16s;
+}
+.ds-navnode:hover { background: rgba(255,255,255,.07); transform: translateX(2px); }
+.ds-navnode--child { margin-left: 30px; position: relative; color: var(--on-dark-soft); }
+.ds-navnode--child::before {
+  content: ""; position: absolute; left: -16px; top: -10px; bottom: 50%;
+  width: 1px; background: var(--rule-dark);
+}
+.ds-navnode--child::after {
+  content: ""; position: absolute; left: -16px; top: 50%;
+  width: 13px; height: 1px; background: var(--rule-dark);
+}
+.ds-navnode-go { margin-left: auto; color: var(--on-dark-faint); font-size: 13px; }
+.ds-navnode:hover .ds-navnode-go { color: var(--lime); }
+.ds-navnode-count {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em;
+  text-transform: uppercase; padding: 4px 9px; border-radius: 6px;
+  background: rgba(255,255,255,.07); color: var(--on-dark-faint);
+}
+.ds-navnode-count--live { background: rgba(127,227,168,.14); color: var(--data-dark); }
+
+/* side stats */
+.ds-side { display: grid; gap: 14px; }
+.ds-stat-card {
+  background: var(--card); border: 1px solid var(--rule-soft);
+  border-radius: 18px; padding: 20px;
+}
+.ds-stat-k {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .15em;
+  text-transform: uppercase; color: var(--on-paper-faint); margin: 0 0 10px;
+}
+.ds-stat-v {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: 30px; letter-spacing: -0.03em; color: var(--forest);
+  margin: 0; line-height: 1;
+}
+.ds-stat-v small {
+  font-family: var(--font-mono); font-size: 13px; font-weight: 400;
+  color: var(--on-paper-faint); margin-left: 7px; letter-spacing: 0;
+}
+.ds-stat-note { font-size: 12.5px; color: var(--on-paper-soft); margin: 10px 0 0; line-height: 1.5; }
+.ds-stat-note--ok { color: var(--data); }
+.ds-stat-note--err { color: var(--alert); font-family: var(--font-mono); font-size: 11.5px; }
+
+.ds-mini {
+  width: 100%; margin-top: 12px; padding: 11px 14px;
+  border-radius: var(--r-pill); border: 1px solid var(--rule);
+  background: #fff; color: var(--on-paper);
+  font: 500 13px/1 var(--font-body); cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.ds-mini:hover:not(:disabled) { background: var(--card-2); border-color: rgba(22,48,31,.24); }
+.ds-mini:disabled { opacity: .5; cursor: not-allowed; }
+
+.ds-recs { display: grid; }
+.ds-rec {
+  display: flex; justify-content: space-between; gap: 14px; align-items: center;
+  padding: 11px 0; border-bottom: 1px solid var(--rule-soft);
+  font-size: 12.5px; color: var(--on-paper-soft);
+}
+.ds-rec:last-child { border-bottom: 0; }
+.ds-rec b {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--on-paper);
+}
+
+@media (max-width: 900px) { .ds-dash { grid-template-columns: 1fr; } }
+
+/* ── dashboard ─────────────────────────────────────────────────────────────
+   Modular blocks with real colour. The previous pass was monochrome grey on
+   grey while the landing carried forest and lime — the app looked unfinished
+   next to its own marketing.                                                */
+
+.ds-idcard {
+  display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap;
+  padding-bottom: 26px; margin-bottom: 30px;
+  border-bottom: 1px solid var(--rule);
+}
+.ds-idcard-name {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(30px, 3.4vw, 44px); letter-spacing: -0.032em;
+  color: var(--forest); margin: 0; line-height: 1;
+}
+.ds-idcard-name span { color: var(--on-paper-faint); }
+.ds-idcard-addr {
+  font-family: var(--font-mono); font-size: 12.5px;
+  color: var(--on-paper-faint); margin: 10px 0 0;
+}
+.ds-idcard-addr a { color: inherit; }
+.ds-idcard-actions { margin-left: auto; display: flex; gap: 9px; }
+
+/* ── stat modules — separate cards, each with its own accent ───────────── */
+
+.ds-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 34px; }
+
+.ds-strip-cell {
+  position: relative; overflow: hidden;
+  background: var(--card); border: 1px solid var(--rule-soft);
+  border-radius: 18px; padding: 22px;
+}
+/* a colour bar keys each module to its meaning */
+.ds-strip-cell::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--rule);
+}
+.ds-strip-cell--lime::before   { background: linear-gradient(180deg, var(--lime), var(--lime-deep)); }
+.ds-strip-cell--forest::before { background: var(--forest); }
+.ds-strip-cell--warn::before   { background: var(--alert); }
+.ds-strip-cell--ok::before     { background: var(--data); }
+
+.ds-strip-k {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .15em;
+  text-transform: uppercase; color: var(--on-paper-faint); margin: 0 0 12px;
+}
+.ds-strip-v {
+  font-family: var(--font-display); font-weight: 600; font-size: 30px;
+  letter-spacing: -0.03em; color: var(--forest); margin: 0; line-height: 1;
+}
+.ds-strip-v small {
+  font-family: var(--font-mono); font-size: 12.5px; font-weight: 400;
+  color: var(--on-paper-faint); margin-left: 7px; letter-spacing: 0;
+}
+.ds-strip-v--name {
+  font-family: var(--font-mono); font-size: 15px; font-weight: 500;
+  letter-spacing: -0.01em; word-break: break-all;
+}
+.ds-strip-v--warn { color: var(--alert); }
+.ds-strip-note { font-size: 12.5px; color: var(--on-paper-soft); margin: 11px 0 0; line-height: 1.5; }
+.ds-strip-note--ok { color: var(--data); }
+.ds-strip-note--warn { color: var(--alert); }
+.ds-strip-note--err { font-family: var(--font-mono); font-size: 11px; color: var(--alert); }
+
+.ds-mini {
+  width: 100%; margin-top: 13px; padding: 11px 14px;
+  border-radius: var(--r-pill); border: 1px solid var(--forest);
+  background: var(--forest); color: var(--lime);
+  font: 500 13px/1 var(--font-body); cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+}
+.ds-mini:hover:not(:disabled) {
+  transform: translateY(-1px); box-shadow: 0 8px 18px -10px rgba(22,48,31,.5);
+}
+.ds-mini:disabled {
+  opacity: .5; cursor: not-allowed;
+  background: var(--card-2); color: var(--on-paper-faint); border-color: var(--rule);
+}
+
+/* ── action modules ────────────────────────────────────────────────────── */
+
+.ds-acts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+.ds-act {
+  display: flex; flex-direction: column; position: relative; overflow: hidden;
+  background: var(--card); border: 1px solid var(--rule-soft);
+  border-radius: 20px; padding: 24px; min-height: 232px;
+  text-decoration: none; color: inherit;
+  transition: transform .2s cubic-bezier(.2,.7,.3,1), border-color .2s, box-shadow .2s;
+}
+.ds-act::after {
+  content: ""; position: absolute; right: -60px; top: -60px;
+  width: 160px; height: 160px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(203,246,60,.18), transparent 68%);
+  opacity: 0; transition: opacity .25s;
+}
+.ds-act:hover {
+  transform: translateY(-4px);
+  border-color: rgba(203,246,60,.65);
+  box-shadow: 0 22px 44px -28px rgba(22,48,31,.45);
+}
+.ds-act:hover::after { opacity: 1; }
+
+.ds-act-top { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+.ds-act-ic {
+  width: 34px; height: 34px; border-radius: 11px; flex: none;
+  display: grid; place-items: center; font-size: 15px;
+  background: var(--forest); color: var(--lime);
+}
+.ds-act-ic--warn { background: rgba(196,85,63,.12); color: var(--alert); }
+.ds-act-ic--ok   { background: rgba(47,158,99,.14); color: var(--data); }
+
+.ds-act-name { font-family: var(--font-mono); font-size: 13px; color: var(--on-paper); }
+.ds-act-name span { color: var(--on-paper-faint); }
+.ds-act-pill {
+  margin-left: auto; font-family: var(--font-mono); font-size: 9.5px;
+  letter-spacing: .1em; text-transform: uppercase;
+  padding: 5px 10px; border-radius: 7px;
+  background: var(--card-2); color: var(--on-paper-faint); border: 1px solid var(--rule-soft);
+}
+.ds-act-pill--live { background: rgba(47,158,99,.12); color: var(--data); border-color: rgba(47,158,99,.28); }
+.ds-act-pill--warn { background: rgba(196,85,63,.1); color: var(--alert); border-color: rgba(196,85,63,.25); }
+
+.ds-act h3 {
+  font-family: var(--font-display); font-weight: 600; font-size: 21px;
+  letter-spacing: -0.028em; color: var(--forest); margin: 0 0 9px;
+}
+.ds-act p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--on-paper-soft); }
+.ds-act-go {
+  margin-top: auto; padding-top: 20px;
+  font-size: 13.5px; font-weight: 500; color: var(--forest);
+  display: flex; align-items: center; gap: 8px;
+}
+.ds-act:hover .ds-act-go { gap: 12px; }
+.ds-act-go i {
+  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--lime); color: var(--lime-ink); font-style: normal; font-size: 11px;
+  transition: transform .2s;
+}
+.ds-act:hover .ds-act-go i { transform: translateX(3px); }
+
+@media (max-width: 900px) {
+  .ds-strip, .ds-acts { grid-template-columns: 1fr; }
+}
+
+/* ── page shell: footer actually at the bottom ─────────────────────────────
+   It was sitting inside <main> right under the cards, so on a short page it
+   floated mid-screen instead of anchoring anything.                         */
+
+.ds-page { display: flex; flex-direction: column; min-height: 100vh; }
+.ds-page > main { flex: 1 0 auto; }
+
+.ds-footer {
+  flex: none; margin-top: 64px;
+  border-top: 1px solid var(--rule);
+  background: rgba(255, 255, 255, .5);
+}
+.ds-footer-in {
+  max-width: var(--page); margin: 0 auto; padding: 26px 28px;
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  font-size: 13px; color: var(--on-paper-faint);
+}
+.ds-footer-in a { color: var(--on-paper-soft); text-decoration: none; }
+.ds-footer-in a:hover { color: var(--on-paper); }
+.ds-footer-who { display: flex; align-items: center; gap: 8px; }
+.ds-footer-who i {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--data); flex: none;
+}
+.ds-footer-who b {
+  font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; color: var(--on-paper-soft);
+}
+.ds-footer-links { margin-left: auto; display: flex; gap: 22px; }
+
+/* ── staggered entrance for the module rows ────────────────────────────── */
+
+.ds-in {
+  opacity: 0; transform: translateY(16px);
+  animation: dsin .62s cubic-bezier(.2, .75, .3, 1) forwards;
+}
+@keyframes dsin { to { opacity: 1; transform: none; } }
+
+/* each card arrives just after the one to its left */
+.ds-strip > *:nth-child(1) { animation-delay: 40ms; }
+.ds-strip > *:nth-child(2) { animation-delay: 100ms; }
+.ds-strip > *:nth-child(3) { animation-delay: 160ms; }
+.ds-acts  > *:nth-child(1) { animation-delay: 220ms; }
+.ds-acts  > *:nth-child(2) { animation-delay: 290ms; }
+.ds-acts  > *:nth-child(3) { animation-delay: 360ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-in { animation: none; opacity: 1; transform: none; }
+}
