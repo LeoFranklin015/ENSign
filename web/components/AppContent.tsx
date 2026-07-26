@@ -519,7 +519,7 @@ export default function AppContent() {
               <p className="ds-won-sub">is yours — and it&apos;s already a wallet.</p>
               <p className="ds-won-addr">{minted.account}</p>
 
-              <div className="ds-won-drag">
+              <div className="ds-won-drag ds-glow">
                 <p className="ds-won-drag-k">One last thing</p>
                 <div className="ds-won-drag-row">
                   <a
@@ -529,7 +529,7 @@ export default function AppContent() {
                     onClick={(e) => e.preventDefault()}
                     title="Drag me to your bookmarks bar"
                   >
-                    ◈ Sign in with ENSign
+                    ◈ ENSign
                   </a>
                   <span className="ds-won-hint">
                     Drag this to your bookmarks bar to use your name on any dApp.
