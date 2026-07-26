@@ -18,6 +18,7 @@ import { getSession } from "@/lib/session";
 import {
   CHAIN,
   CHAIN_ID,
+  PARENT_NAME,
   createPasskeyForLabel,
   publicClient,
   sendUserOp,
@@ -266,6 +267,7 @@ export default function RecoveryContent() {
   // Shown after a successful email registration — losing this code kills the
   // guardian, so it gets a modal rather than a line of prose.
   const [showCode, setShowCode] = useState<Hex | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
 
   // recovery form
@@ -777,6 +779,11 @@ export default function RecoveryContent() {
   }
 
   const ready = executeAt > 0 && now >= executeAt;
+  // The link guardians actually use — public, and resolvable without a session.
+  const recoverLink =
+    typeof window !== "undefined" && label
+      ? `${window.location.origin}/recover?name=${label}.${PARENT_NAME}`
+      : "/recover";
   const emailGuardians = recoveries.filter(
     (r) => r.provider.toLowerCase() === ZKEMAIL_PROVIDER.toLowerCase(),
   );
@@ -910,142 +917,42 @@ export default function RecoveryContent() {
 
         {/* ── RECOVER ─────────────────────────────────────────────────── */}
         {mode === "recover" && (
-          <div className="ds-flow">
-            {!optedIn && (
-              <div className="ds-empty">Recovery isn&apos;t enabled on this account.</div>
-            )}
+          <section className="ds-off ds-in">
+            <div className="ds-off-ic" style={{ background: "rgba(203,246,60,.18)", color: "var(--forest)" }} aria-hidden>
+              ↗
+            </div>
+            <h2>Recovery happens on a public page</h2>
+            <p>
+              Whoever lost the passkey can&apos;t sign in, and your guardians never had an
+              account here. So the flow lives on a link anyone can open — nothing on it
+              grants power, because every approval is verified on-chain.
+            </p>
 
-            {optedIn && (
-              <>
-                <div className={`ds-step ${newKey ? "" : ""}`}>
-                  <div className="ds-step-h">
-                    <span className="ds-step-n">1</span>
-                    <h4>Create the replacement passkey</h4>
-                    {newKey && <span className="ds-step-done">✓ created</span>}
-                  </div>
-                  <p className="ag-hint">
-                    This is the key your guardians will authorise. Nothing is on-chain yet.
-                  </p>
-                  <button className="ds-btn" style={{ marginTop: 12 }} disabled={!!busy} onClick={generateKey}>
-                    {busy === "create passkey" ? "…" : newKey ? "Create another" : "Create passkey"}
-                  </button>
-                  {newKey && (
-                    <p className="ag-hint" style={{ marginTop: 10, fontFamily: "var(--font-mono)", fontSize: 11 }}>
-                      qx {newKey.qx}<br />qy {newKey.qy}<br />
-                      nonce {String(nonce)} · account {targetAccount || account}
-                    </p>
-                  )}
-                </div>
+            <div className="ds-codebox" style={{ marginTop: 24 }}>
+              <code>{recoverLink}</code>
+              <button
+                className="ds-copy"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(recoverLink);
+                    setLinkCopied(true);
+                    setTimeout(() => setLinkCopied(false), 1600);
+                  } catch { /* clipboard blocked */ }
+                }}
+              >
+                {linkCopied ? "Copied ✓" : "Copy link"}
+              </button>
+            </div>
 
-                <div className={`ds-step ${newKey ? "" : "ds-step--muted"}`}>
-                  <div className="ds-step-h">
-                    <span className="ds-step-n">2</span>
-                    <h4>Collect {threshold} approval{threshold > 1 ? "s" : ""}</h4>
-                    <span className="ds-step-done">{sigs.length}/{threshold}</span>
-                  </div>
+            <p className="ag-hint" style={{ marginTop: 14 }}>
+              Save it somewhere you&apos;ll still reach without this device — and send it to
+              your guardians when you need them.
+            </p>
 
-                  <div className="ag-row">
-                    <button className="ghost" disabled={!!busy || !newKey} onClick={signAsGuardian}>
-                      Sign as a wallet guardian
-                    </button>
-                    {emailGuardians.length > 0 && (
-                      <button className="ghost" disabled={!!busy || !newKey} onClick={showEmailCommand}>
-                        Show email command
-                      </button>
-                    )}
-                  </div>
-
-                  {sigs.map((s2) => (
-                    <p className="ag-hint" key={s2.recoveryId} style={{ marginTop: 8 }}>
-                      ✓ {s2.signer.startsWith("email") ? s2.signer : short(s2.signer)}
-                    </p>
-                  ))}
-
-                  {emailGuardians.length > 0 && newKey && (
-                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--rule-soft)" }}>
-                      <p className="ds-strip-k">By email</p>
-                      {emailCommand && (
-                        <p className="ag-hint" style={{ marginBottom: 10 }}>
-                          The email body must contain exactly:<br />
-                          <b style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, wordBreak: "break-all" }}>
-                            {emailCommand}
-                          </b>
-                        </p>
-                      )}
-                      <div className="ag-row">
-                        <input
-                          className="ag-input ag-input--inline"
-                          placeholder="account code (0x…)"
-                          value={accountCode ?? ""}
-                          onChange={(e) => setAccountCode(e.target.value.trim() as Hex)}
-                        />
-                        {HAS_RELAYER && (
-                          <button
-                            className="ghost"
-                            disabled={!!busy || !accountCode}
-                            onClick={() => requestEmailApproval(emailGuardians[0])}
-                          >
-                            {busy === "email approval" ? "waiting…" : "Send approval email"}
-                          </button>
-                        )}
-                      </div>
-                      <p className="ds-strip-k" style={{ marginTop: 14 }}>Or prove a saved .eml</p>
-                      <input
-                        type="file" accept=".eml,message/rfc822" className="ag-input"
-                        disabled={!!busy || !accountCode}
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) void proveEmlAndAttach(f); }}
-                      />
-                      {emailStatus && <p className="ag-hint" style={{ marginTop: 8 }}>{emailStatus}</p>}
-                      <details style={{ marginTop: 10 }}>
-                        <summary className="ag-hint">paste a proof instead</summary>
-                        <textarea
-                          className="ag-input" rows={4} style={{ marginTop: 8 }}
-                          placeholder='{"domainName":"gmail.com",…}'
-                          value={emailProofJson}
-                          onChange={(e) => setEmailProofJson(e.target.value)}
-                        />
-                        <button className="ghost" style={{ marginTop: 8 }}
-                                disabled={!!busy || !emailProofJson.trim()} onClick={attachEmailProof}>
-                          Attach proof
-                        </button>
-                      </details>
-                    </div>
-                  )}
-                </div>
-
-                <div className={`ds-step ${sigs.length >= threshold ? "" : "ds-step--muted"}`}>
-                  <div className="ds-step-h">
-                    <span className="ds-step-n">3</span>
-                    <h4>Request and execute</h4>
-                    {requestId && (
-                      <span className="ds-step-done">
-                        {ready ? "ready" : `${Math.max(0, executeAt - now)}s`}
-                      </span>
-                    )}
-                  </div>
-                  <div className="ag-row">
-                    <button
-                      className="ds-btn"
-                      disabled={!!busy || sigs.length < threshold || !!requestId}
-                      onClick={submitRequest}
-                    >
-                      {busy === "submit request" ? "…" : "Submit request"}
-                    </button>
-                    {requestId && (
-                      <>
-                        <button className="ds-btn" disabled={!!busy || !ready} onClick={executeRequest}>
-                          Execute
-                        </button>
-                        <button className="ghost" disabled={!!busy} onClick={cancelRequest}>
-                          Cancel (veto)
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+            <a className="ds-btn" style={{ marginTop: 20 }} href={recoverLink} target="_blank" rel="noreferrer">
+              Open recovery page ↗
+            </a>
+          </section>
         )}
       </main>
 
