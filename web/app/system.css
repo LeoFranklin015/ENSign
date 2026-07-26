@@ -1728,3 +1728,110 @@
 .ds-prog-note { font-size: 12.5px; color: var(--on-paper-soft); margin: 9px 0 0; }
 
 @media (prefers-reduced-motion: reduce) { .ds-prog-fill--live::after { animation: none; } }
+
+/* ── sign-in / bookmarklet ─────────────────────────────────────────────────
+   The one page where the product leaves ENSign and shows up somewhere else,
+   so it's built around the single act of dragging that link.                */
+
+.ds-install { display: grid; grid-template-columns: 1.05fr 1fr; gap: 20px; align-items: start; }
+
+.ds-drag {
+  background: var(--card); border: 1px solid var(--rule-soft);
+  border-radius: 20px; padding: 30px 26px; text-align: center;
+  position: relative; overflow: hidden;
+}
+.ds-drag::after {
+  content: ""; position: absolute; left: 50%; top: -70px;
+  width: 260px; height: 200px; transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(203,246,60,.24), transparent 68%);
+  pointer-events: none;
+}
+.ds-drag-k {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--on-paper-faint); margin: 0 0 18px;
+  position: relative;
+}
+.ds-drag-hint { font-size: 13px; color: var(--on-paper-soft); margin: 18px 0 0; line-height: 1.6; position: relative; }
+
+/* the draggable pill itself — the anchor, NOT .bookmarklet-hero, which is the
+   container around it (styling that gave the whole wrapper a pill background) */
+.ds-draglink {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 14px 24px; border-radius: var(--r-pill);
+  background: var(--forest); color: var(--lime);
+  font: 500 15px/1 var(--font-body); text-decoration: none;
+  cursor: grab; position: relative;
+  box-shadow: 0 10px 26px -12px rgba(14,33,22,.6);
+  animation: dsbreathe2 3.4s ease-in-out infinite;
+}
+.ds-draglink:active { cursor: grabbing; }
+@keyframes dsbreathe2 {
+  0%, 100% { transform: none; box-shadow: 0 10px 26px -12px rgba(14,33,22,.6); }
+  50% { transform: translateY(-3px); box-shadow: 0 18px 34px -14px rgba(14,33,22,.55); }
+}
+
+.ds-steps { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.ds-steps li {
+  display: flex; align-items: flex-start; gap: 13px;
+  padding: 15px 17px; border-radius: 15px;
+  background: var(--card); border: 1px solid var(--rule-soft);
+  font-size: 13.5px; line-height: 1.55; color: var(--on-paper-soft);
+}
+.ds-steps b {
+  width: 25px; height: 25px; flex: none; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--forest); color: var(--lime);
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+}
+.ds-steps em { font-style: normal; font-family: var(--font-mono); color: var(--forest); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-draglink, .ds .bookmarklet, .ds .bookmarklet-big { animation: none; }
+}
+@media (max-width: 900px) { .ds-install { grid-template-columns: 1fr; } }
+
+/* BookmarkletCard's own classes — they only existed in the legacy dark sheet,
+   so without these the card renders dark inside the light page. */
+
+.ds .bookmarklet-hero { display: grid; gap: 14px; justify-items: center; position: relative; }
+
+.ds .bookmarklet,
+.ds .bookmarklet-big {
+  /* every property restated: legacy .bookmarklet-big ships 22px type,
+     48px padding and a lime glow, and anything left unset survives */
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  padding: 15px 30px; border-radius: var(--r-pill);
+  background: var(--forest); color: var(--lime);
+  font-family: var(--font-body); font-size: 15.5px; font-weight: 500;
+  line-height: 1; letter-spacing: -0.005em; text-transform: none;
+  text-decoration: none; cursor: grab; position: relative;
+  box-shadow: 0 10px 26px -12px rgba(14,33,22,.6);
+  animation: dsbreathe2 3.4s ease-in-out infinite;
+}
+.ds .bookmarklet-big:hover { transform: translateY(-2px); box-shadow: 0 16px 32px -14px rgba(14,33,22,.55); }
+.ds .bookmarklet:active, .ds .bookmarklet-big:active { cursor: grabbing; }
+
+.ds .bookmarklet-hint {
+  font-family: var(--font-mono); font-size: 11.5px;
+  color: var(--on-paper-faint); text-align: center; line-height: 1.6;
+}
+.ds .bookmarklet-copy { padding: 9px 16px; font-size: 12.5px; }
+
+.ds .bookmarklet-details {
+  width: 100%; font-size: 12px; color: var(--on-paper-faint);
+  background: var(--card-2); border: 1px solid var(--rule-soft);
+  border-radius: 12px; padding: 12px 14px;
+}
+.ds .bookmarklet-details summary { cursor: pointer; color: var(--on-paper-soft); }
+.ds .bookmarklet-details pre,
+.ds .bookmarklet-details code {
+  display: block; margin-top: 10px; max-height: 180px; overflow: auto;
+  font-family: var(--font-mono); font-size: 10.5px; line-height: 1.6;
+  color: var(--on-paper-soft); word-break: break-all; white-space: pre-wrap;
+}
+.ds .err {
+  padding: 10px 13px; border-radius: 11px;
+  background: rgba(196,85,63,.08); border: 1px solid rgba(196,85,63,.22);
+  color: var(--alert); font-family: var(--font-mono); line-height: 1.5;
+  word-break: break-word;
+}
