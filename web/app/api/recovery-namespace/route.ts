@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
   createPublicClient,
   createWalletClient,
+  encodeAbiParameters,
   encodeFunctionData,
   fallback,
   http,
@@ -34,6 +35,7 @@ export const dynamic = "force-dynamic";
  * to the client rather than happening here.
  */
 
+const ZERO: Address = "0x0000000000000000000000000000000000000000";
 const STORAGE_REGISTRY: Address = "0x674cBe3246596871f18B2fe3489E09D77734fE06";
 const USER_REGISTRY_IMPL: Address = "0x0F99e7Ea74903AfCB7224d0354fD7428A6f92917";
 const VERIFIABLE_FACTORY: Address = "0xD2a632D8a8b67c2c4398c255CbD7aF8dd7236198";
@@ -107,6 +109,9 @@ export async function POST(req: Request) {
         .map((u) => http(u as string, { timeout: 20_000, retryCount: 2 })),
       { rank: false },
     );
+    // Unique per request: see deployRegistry for why the salt must not be
+    // derived from the label alone.
+    const saltSeed = keccak256(toHex(`${label}:${Date.now()}:${Math.random()}`));
     const bot = privateKeyToAccount(PK);
     const pub = createPublicClient({ chain: sepolia, transport });
     const wallet = createWalletClient({ account: bot, chain: sepolia, transport });
@@ -134,16 +139,26 @@ export async function POST(req: Request) {
       if (receipt.status !== "success") throw new Error(`tx reverted: ${hash}`);
       return hash;
     };
+    /**
+     * Deploy a fresh UserRegistry proxy through the VerifiableFactory.
+     *
+     * The salt carries a per-request seed rather than being derived from the
+     * label alone. A label-only salt looks tidier but is a trap: provisioning
+     * ends with a userOp the client may never send, so the account can be left
+     * with registries and no pointer at them. Retrying then hits CREATE2 at an
+     * occupied address and reverts, which is exactly the dead end this replaces.
+     * A retry now simply builds a new namespace; the earlier one is unreferenced
+     * and harmless, and no guardian can exist under it yet.
+     */
     const deployRegistry = async (tag: string): Promise<Address> => {
-      const salt = BigInt(keccak256(toHex(`ensign:${tag}:${label}`)));
+      const salt = BigInt(keccak256(toHex(`ensign:${tag}:${label}:${saltSeed}`)));
       const data = encodeFunctionData({
         abi: userRegistryAbi,
         functionName: "initialize",
         args: [bot.address, ALL_ROLES],
       });
-      // Read the address back from a simulation: deployProxy returns it, but a
-      // receipt won't, and CREATE2 prediction would mean reimplementing the
-      // factory's salt derivation here.
+      // deployProxy returns the address but a receipt won't carry it, so read
+      // it off a simulation of the very call we are about to send.
       const { result } = await pub.simulateContract({
         account: bot, address: VERIFIABLE_FACTORY, abi: factoryAbi,
         functionName: "deployProxy", args: [USER_REGISTRY_IMPL, salt, data],
@@ -165,26 +180,23 @@ export async function POST(req: Request) {
     let methodsRegistry: Address;
     let needsSetSubregistry = false;
 
-    if (namespaceRegistry === "0x0000000000000000000000000000000000000000") {
+    if (namespaceRegistry === ZERO) {
       namespaceRegistry = await deployRegistry("rec-namespace");
+      needsSetSubregistry = true; // only the account can re-point its own name
+    }
+    // Ask the namespace what `recovery` points at rather than assuming we are
+    // the ones who put it there — a previous run may have got this far and
+    // stopped before the client sent its userOp.
+    methodsRegistry = await read<Address>(namespaceRegistry, "getSubregistry", ["recovery"]);
+    if (methodsRegistry === ZERO) {
       methodsRegistry = await deployRegistry("rec-methods");
       await send(
         namespaceRegistry,
         encodeFunctionData({
           abi: registryAbi, functionName: "register",
-          args: ["recovery", account, methodsRegistry,
-                 "0x0000000000000000000000000000000000000000", ALL_ROLES, expiry],
+          args: ["recovery", account, methodsRegistry, ZERO, ALL_ROLES, expiry],
         }),
       );
-      needsSetSubregistry = true; // only the account can re-point its own name
-    } else {
-      methodsRegistry = await read<Address>(namespaceRegistry, "getSubregistry", ["recovery"]);
-      if (methodsRegistry === "0x0000000000000000000000000000000000000000") {
-        return NextResponse.json(
-          { error: "namespace exists but has no `recovery` subname; state is inconsistent" },
-          { status: 409 },
-        );
-      }
     }
 
     if (!withGuardian) {
@@ -206,7 +218,7 @@ export async function POST(req: Request) {
       labelId(guardianLabel as string),
     ]);
     const existing = await read<Address>(methodsRegistry, "ownerOf", [guardianTokenId]);
-    if (existing !== "0x0000000000000000000000000000000000000000") {
+    if (existing !== ZERO) {
       return NextResponse.json(
         { error: `guardian name "${guardianLabel}" is already taken for this account` },
         { status: 409 },
@@ -217,8 +229,7 @@ export async function POST(req: Request) {
       encodeFunctionData({
         abi: registryAbi, functionName: "register",
         args: [guardianLabel as string, guardianAddress as Address,
-               "0x0000000000000000000000000000000000000000",
-               "0x0000000000000000000000000000000000000000", ALL_ROLES, expiry],
+               ZERO, ZERO, ALL_ROLES, expiry],
       }),
     );
     const mintedId = await read<bigint>(methodsRegistry, "getTokenId", [labelId(guardianLabel as string)]);
