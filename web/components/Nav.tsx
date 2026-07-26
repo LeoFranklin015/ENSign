@@ -47,8 +47,11 @@ export function Nav({ onClaim }: { onClaim?: () => void } = {}) {
     };
   }, [open]);
 
-  function logout() {
+  function disconnect() {
     clearSession();
+    setLabel(null);
+    setAccount(null);
+    setOpen(false);
     router.push("/");
   }
 
@@ -61,12 +64,20 @@ export function Nav({ onClaim }: { onClaim?: () => void } = {}) {
     } catch { /* clipboard blocked — nothing useful to do */ }
   }
 
+  /// Signed out and off the landing page there is no modal to open here, so
+  /// route home, where the claim / sign-in flow lives.
+  const connect = onClaim ?? (() => router.push("/"));
+
   const fullName = label ? `${label}.${PARENT_NAME}` : "";
 
   return (
     <nav className="ds-nav">
       <div className="ds-nav-in">
-        <Link href={label ? "/dashboard" : "/"} className="ds-brand" style={{ textDecoration: "none", color: "inherit" }}>
+        <Link
+          href={label ? "/dashboard" : "/"}
+          className="ds-brand"
+          style={{ textDecoration: "none" }}
+        >
           ENSign <span>ENS v2</span>
         </Link>
 
@@ -77,11 +88,7 @@ export function Nav({ onClaim }: { onClaim?: () => void } = {}) {
                 key={t.href}
                 href={t.href}
                 className="ds-navlink"
-                style={
-                  pathname === t.href
-                    ? { color: "var(--on-paper)", fontWeight: 500 }
-                    : undefined
-                }
+                style={pathname === t.href ? { color: "var(--on-paper)", fontWeight: 500 } : undefined}
               >
                 {t.label}
               </Link>
@@ -93,11 +100,6 @@ export function Nav({ onClaim }: { onClaim?: () => void } = {}) {
           {!label ? (
             <>
               <Link href="/pitch" className="ds-navlink">Pitch</Link>
-              {onClaim && (
-                <button className="ds-btn" style={{ padding: "10px 18px", fontSize: 14 }} onClick={onClaim}>
-                  Claim a name
-                </button>
-              )}
               <a
                 className="ds-navlink"
                 href="https://github.com/LeoFranklin015/ENSign"
@@ -106,62 +108,96 @@ export function Nav({ onClaim }: { onClaim?: () => void } = {}) {
               >
                 GitHub
               </a>
+              {/* One button covers both paths — the flow detects whether the
+                  name is already minted and switches to sign-in itself. */}
+              <button
+                className="ds-btn"
+                onClick={connect}
+                style={{ padding: "11px 20px", fontSize: 14 }}
+              >
+                Connect
+              </button>
             </>
           ) : (
-            <div ref={popRef} style={{ position: "relative" }}>
+            <div className="ds-account" ref={popRef}>
               <button
                 type="button"
-                className="ds-btn ds-btn--ghost"
+                className="ds-account-btn"
                 onClick={() => setOpen((v) => !v)}
                 aria-expanded={open}
                 aria-haspopup="menu"
                 title={fullName}
-                style={{ fontFamily: "var(--font-mono)", fontSize: 13, padding: "9px 15px" }}
               >
-                <i className="ds-dot" />
+                <i />
                 {label}
-                <span style={{ color: "var(--on-paper-faint)" }}>.{PARENT_NAME}</span>
+                <span className="ds-account-suffix">.{PARENT_NAME}</span>
+                <span className="ds-account-caret" aria-hidden>▾</span>
               </button>
 
               {open && (
-                <div
-                  role="menu"
-                  style={{
-                    position: "absolute", right: 0, top: "calc(100% + 9px)",
-                    minWidth: 264, padding: 7,
-                    background: "var(--paper)",
-                    border: "1px solid var(--rule)",
-                    borderRadius: 13,
-                    boxShadow: "0 22px 44px -20px rgba(15,43,34,.28)",
-                    zIndex: 60,
-                  }}
-                >
-                  <div style={{ padding: "9px 11px 11px", borderBottom: "1px solid var(--rule)", marginBottom: 5 }}>
-                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>{fullName}</div>
+                <div className="ds-pop" role="menu">
+                  <div className="ds-pop-head">
+                    <div className="ds-pop-name">{fullName}</div>
                     {account && (
-                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--on-paper-faint)", marginTop: 4 }}>
-                        {account.slice(0, 10)}…{account.slice(-8)}
+                      <div className="ds-pop-addr">
+                        {account.slice(0, 12)}…{account.slice(-10)}
                       </div>
                     )}
                   </div>
-                  <PopItem onClick={copyAddress} disabled={!account}>
-                    {copied ? "Address copied" : "Copy address"}
-                  </PopItem>
-                  <PopItem href={`https://explorer.ens.dev/${fullName}`} onClick={() => setOpen(false)}>
-                    View on ENS explorer ↗
-                  </PopItem>
+
+                  <button
+                    type="button"
+                    className="ds-pop-item"
+                    onClick={copyAddress}
+                    disabled={!account}
+                  >
+                    <span>{copied ? "Address copied" : "Copy address"}</span>
+                    <span className="ds-pop-hint">{copied ? "✓" : "⧉"}</span>
+                  </button>
+
+                  <Link href="/dashboard" className="ds-pop-item" onClick={() => setOpen(false)}>
+                    <span>Wallet</span>
+                    <span className="ds-pop-hint">→</span>
+                  </Link>
+                  <Link href="/recovery" className="ds-pop-item" onClick={() => setOpen(false)}>
+                    <span>Recovery</span>
+                    <span className="ds-pop-hint">→</span>
+                  </Link>
+
+                  <div className="ds-pop-rule" />
+
+                  <a
+                    className="ds-pop-item"
+                    href={`https://explorer.ens.dev/${fullName}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => setOpen(false)}
+                  >
+                    <span>ENS explorer</span>
+                    <span className="ds-pop-hint">↗</span>
+                  </a>
                   {account && (
-                    <PopItem
+                    <a
+                      className="ds-pop-item"
                       href={`https://sepolia.etherscan.io/address/${account}`}
+                      target="_blank"
+                      rel="noreferrer"
                       onClick={() => setOpen(false)}
                     >
-                      View on Etherscan ↗
-                    </PopItem>
+                      <span>Etherscan</span>
+                      <span className="ds-pop-hint">↗</span>
+                    </a>
                   )}
-                  <div style={{ height: 1, background: "var(--rule)", margin: "5px 0" }} />
-                  <PopItem onClick={() => { setOpen(false); logout(); }} danger>
-                    Log out
-                  </PopItem>
+
+                  <div className="ds-pop-rule" />
+
+                  <button
+                    type="button"
+                    className="ds-pop-item ds-pop-item--danger"
+                    onClick={disconnect}
+                  >
+                    <span>Disconnect</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -169,42 +205,5 @@ export function Nav({ onClaim }: { onClaim?: () => void } = {}) {
         </div>
       </div>
     </nav>
-  );
-}
-
-function PopItem({
-  children, onClick, href, disabled, danger,
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-  href?: string;
-  disabled?: boolean;
-  danger?: boolean;
-}) {
-  const style: React.CSSProperties = {
-    display: "block", width: "100%", textAlign: "left",
-    padding: "9px 11px", borderRadius: 8, border: 0,
-    background: "transparent", cursor: disabled ? "not-allowed" : "pointer",
-    font: "400 13.5px/1.3 var(--font-body)",
-    color: danger ? "#A34733" : "var(--on-paper-soft)",
-    opacity: disabled ? 0.45 : 1,
-    textDecoration: "none",
-  };
-  const hover = (e: React.MouseEvent<HTMLElement>, on: boolean) => {
-    (e.currentTarget as HTMLElement).style.background = on ? "rgba(20,32,27,.05)" : "transparent";
-  };
-  if (href) {
-    return (
-      <a href={href} target="_blank" rel="noreferrer" style={style} onClick={onClick}
-         onMouseEnter={(e) => hover(e, true)} onMouseLeave={(e) => hover(e, false)}>
-        {children}
-      </a>
-    );
-  }
-  return (
-    <button type="button" style={style} onClick={onClick} disabled={disabled}
-            onMouseEnter={(e) => hover(e, true)} onMouseLeave={(e) => hover(e, false)}>
-      {children}
-    </button>
   );
 }
