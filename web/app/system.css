@@ -183,12 +183,17 @@
 /* Two columns: narrative left, the single action right. Stacking these in one
    centred column left ~700px dead on each side and doubled the page height. */
 .ds-hero {
-  padding: 46px 0 34px;
+  padding: 72px 0 56px;
   display: grid;
   grid-template-columns: 1.02fr 0.98fr;
   gap: 60px;
   align-items: center;
 }
+/* With no companion visual the hero is a single centred statement — short,
+   because the claim form now lives in a modal. */
+.ds-hero:has(.ds-hero-copy--solo) { display: block; text-align: center; }
+.ds-hero-copy--solo .ds-lede { margin-left: auto; margin-right: auto; text-align: center; }
+.ds-hero-copy--solo .ds-hero-cta { justify-content: center; }
 .ds-hero-copy { text-align: left; }
 .ds-hero .ds-lede { margin: 18px 0 0; max-width: 44ch; }
 .ds-hero-cta { display: flex; gap: 11px; margin-top: 26px; }

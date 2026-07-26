@@ -250,7 +250,7 @@ export default function AppContent() {
       <section className="ds-wrap ds-hero">
         <div className="ds-mound" aria-hidden />
 
-        <div className="ds-hero-copy">
+        <div className="ds-hero-copy ds-hero-copy--solo">
         <h1 className="ds-h1 ds-rise" style={rise(40)}>
           Your name<br />is the <em>wallet</em>.
         </h1>
@@ -282,36 +282,6 @@ export default function AppContent() {
         )}
         </div>
 
-        {/* right column: the product itself, not a form */}
-        <div className="ds-slab ds-rise" style={rise(300)}>
-          <div className="ds-slab-bar">
-            <span className="ds-tab ds-tab--on">Name tree</span>
-            <span className="ds-live"><i className="ds-dot" /> ENS v2 · Sepolia</span>
-          </div>
-          <div className="ds-panel ds-panel--tall">
-            <div className="ds-tree ds-tree--lg">
-              <div className="ds-node ds-node--root">
-                {previewName}
-                <span className="ds-node-tag ds-node-tag--live">{previewAddr}</span>
-              </div>
-              <div className="ds-node ds-node--child" style={{ marginTop: 6 }}>
-                trader<span className="ds-node-tag">usdc · 10/day</span>
-              </div>
-              <div className="ds-node ds-node--child">
-                scout<span className="ds-node-tag">read only</span>
-              </div>
-              <div className="ds-node ds-node--child">
-                recovery<span className="ds-node-tag ds-node-tag--live">2 of 3</span>
-              </div>
-              <div className="ds-node ds-node--child" style={{ marginLeft: 52, opacity: 0.75 }}>
-                mom<span className="ds-node-tag">ens name</span>
-              </div>
-              <div className="ds-node ds-node--child" style={{ marginLeft: 52, opacity: 0.75 }}>
-                email<span className="ds-node-tag">zkemail</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </section>
 
       {/* ── the inversion ── */}
