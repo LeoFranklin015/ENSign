@@ -14,9 +14,12 @@ import {
 import "../app/system.css";
 import {
   connectInjected,
+  connectTo,
   connectWalletConnect,
+  discoverWallets,
   ensureChain,
   type Connection,
+  type DetectedWallet,
 } from "@/lib/guardianWallet";
 import {
   CHAIN,
@@ -166,6 +169,7 @@ export default function RecoverContent() {
   const [newKey, setNewKey] = useState<{ qx: Hex; qy: Hex } | null>(null);
   const [sigs, setSigs] = useState<Sig[]>([]);
   const [conn, setConn] = useState<Connection | null>(null);
+  const [wallets, setWallets] = useState<DetectedWallet[]>([]);
   const [requestId, setRequestId] = useState<Hex | null>(null);
   const [executeAt, setExecuteAt] = useState(0);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
@@ -182,6 +186,9 @@ export default function RecoverContent() {
     const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // Extensions announce themselves over EIP-6963; ask once on mount.
+  useEffect(() => { void discoverWallets().then(setWallets); }, []);
 
   const load = useCallback(async (acct: Address) => {
     try {
@@ -235,14 +242,15 @@ export default function RecoverContent() {
     } finally { setBusy(null); }
   }
 
-  async function connect(kind: "injected" | "walletconnect") {
-    setBusy(kind); setErr(null);
+  async function connect(target: DetectedWallet | "walletconnect") {
+    const key = target === "walletconnect" ? "walletconnect" : target.rdns;
+    setBusy(key); setErr(null);
     try {
-      const c = kind === "injected"
-        ? await connectInjected(CHAIN_ID)
-        : await connectWalletConnect(CHAIN_ID);
+      const c = target === "walletconnect"
+        ? await connectWalletConnect(CHAIN_ID)
+        : await connectTo(target, CHAIN_ID);
       setConn(c);
-      setNote(`connected ${short(c.address)} via ${c.via === "injected" ? "browser wallet" : "WalletConnect"}`);
+      setNote(`connected ${short(c.address)} via ${c.via}`);
     } catch (e) {
       setErr((e as Error).message);
     } finally { setBusy(null); }
@@ -652,13 +660,38 @@ export default function RecoverContent() {
                         </button>
                       </div>
                     ) : (
-                      <div className="ds-connect-choices">
-                        <button className="ghost" disabled={!!busy} onClick={() => connect("injected")}>
-                          {busy === "injected" ? "…" : "Browser wallet"}
+                      <div className="ds-wallets">
+                        {wallets.map((w) => (
+                          <button
+                            key={w.rdns} className="ds-wallet"
+                            disabled={!!busy} onClick={() => connect(w)}
+                          >
+                            {w.icon
+                              ? <img className="ds-wallet-ic" src={w.icon} alt="" />
+                              : <span className="ds-wallet-ic ds-wallet-ic--fb"><WalletIcon /></span>}
+                            <span className="ds-wallet-n">
+                              {busy === w.rdns ? "Connecting…" : w.name}
+                            </span>
+                            <span className="ds-wallet-tag">extension</span>
+                          </button>
+                        ))}
+
+                        <button
+                          className="ds-wallet" disabled={!!busy}
+                          onClick={() => connect("walletconnect")}
+                        >
+                          <span className="ds-wallet-ic ds-wallet-ic--wc" aria-hidden>⌁</span>
+                          <span className="ds-wallet-n">
+                            {busy === "walletconnect" ? "Opening…" : "WalletConnect"}
+                          </span>
+                          <span className="ds-wallet-tag">scan with a phone</span>
                         </button>
-                        <button className="ghost" disabled={!!busy} onClick={() => connect("walletconnect")}>
-                          {busy === "walletconnect" ? "…" : "WalletConnect"}
-                        </button>
+
+                        {wallets.length === 0 && (
+                          <p className="ag-hint">
+                            No wallet extension detected — use WalletConnect to approve from a phone.
+                          </p>
+                        )}
                       </div>
                     )}
                     <button

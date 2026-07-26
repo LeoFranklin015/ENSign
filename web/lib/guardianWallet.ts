@@ -20,8 +20,73 @@ const PROJECT_ID =
 export type Connection = {
   provider: EIP1193Provider;
   address: `0x${string}`;
-  via: "injected" | "walletconnect";
+  via: string;
 };
+
+/** An installed browser wallet, as announced over EIP-6963. */
+export type DetectedWallet = {
+  uuid: string;
+  name: string;
+  icon: string;
+  rdns: string;
+  provider: EIP1193Provider;
+};
+
+type Eip6963Detail = {
+  info: { uuid: string; name: string; icon: string; rdns: string };
+  provider: EIP1193Provider;
+};
+
+/**
+ * Discover installed browser wallets via EIP-6963.
+ *
+ * WalletConnect's modal cannot reach a browser extension — picking "MetaMask"
+ * there deep-links to the phone app and shows a QR. So the extensions have to
+ * be offered separately, by name, which is what this finds. Falls back to the
+ * legacy `window.ethereum` when nothing announces itself.
+ */
+export function discoverWallets(timeoutMs = 350): Promise<DetectedWallet[]> {
+  if (typeof window === "undefined") return Promise.resolve([]);
+  return new Promise((resolve) => {
+    const found = new Map<string, DetectedWallet>();
+
+    const onAnnounce = (e: Event) => {
+      const { info, provider } = (e as CustomEvent<Eip6963Detail>).detail;
+      if (info?.uuid && !found.has(info.rdns)) {
+        found.set(info.rdns, { ...info, provider });
+      }
+    };
+
+    window.addEventListener("eip6963:announceProvider", onAnnounce);
+    window.dispatchEvent(new Event("eip6963:requestProvider"));
+
+    setTimeout(() => {
+      window.removeEventListener("eip6963:announceProvider", onAnnounce);
+      const list = [...found.values()];
+      if (list.length === 0) {
+        // Older wallets never announce; use whatever injected itself.
+        const eth = (window as unknown as { ethereum?: EIP1193Provider }).ethereum;
+        if (eth) {
+          list.push({
+            uuid: "legacy", rdns: "legacy",
+            name: "Browser wallet", icon: "", provider: eth,
+          });
+        }
+      }
+      resolve(list);
+    }, timeoutMs);
+  });
+}
+
+/** Connect to a specific discovered wallet. */
+export async function connectTo(w: DetectedWallet, chainId: number): Promise<Connection> {
+  const accounts = (await w.provider.request({
+    method: "eth_requestAccounts",
+  })) as `0x${string}`[];
+  if (!accounts?.length) throw new Error(`${w.name} returned no accounts`);
+  await ensureChain(w.provider, chainId);
+  return { provider: w.provider, address: accounts[0], via: w.name };
+}
 
 const CHAIN_META: Record<number, { name: string; rpc: string; explorer: string }> = {
   11155111: {
