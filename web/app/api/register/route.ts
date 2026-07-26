@@ -10,6 +10,7 @@ import {
   ownersFor,
   pub,
   registryAbi,
+  txPub,
   wallet,
 } from "@/lib/serverClients";
 
@@ -59,9 +60,12 @@ export async function POST(req: Request) {
 
     let blockNumber: string | null = null;
     try {
-      const receipt = await pub.waitForTransactionReceipt({
+      // Same node that accepted the broadcast, and long enough for a slow
+      // Sepolia block. maxDuration is 60s, so stay inside it.
+      const receipt = await txPub.waitForTransactionReceipt({
         hash: registerTx,
-        timeout: 40_000,
+        timeout: 50_000,
+        pollingInterval: 2_000,
       });
       blockNumber = receipt.blockNumber.toString();
     } catch {

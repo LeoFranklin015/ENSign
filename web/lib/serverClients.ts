@@ -63,6 +63,14 @@ const baseWriteTransport = writeTransport(process.env.BASE_SEPOLIA_RPC_URL, BASE
 export const account = privateKeyToAccount(PK);
 
 const sepoliaPub = createPublicClient({ chain: sepolia, transport: sepoliaTransport });
+
+/**
+ * Receipt polling MUST use the same node the transaction was broadcast to.
+ * Through a rotating fallback the poll can land on a provider that has never
+ * seen the hash, so it waits forever on a transaction that already confirmed
+ * somewhere else — which reads as "timed out while waiting for transaction".
+ */
+export const txPub = createPublicClient({ chain: sepolia, transport: sepoliaWriteTransport });
 const sepoliaWallet = createWalletClient({ account, chain: sepolia, transport: sepoliaWriteTransport });
 const basePub = createPublicClient({ chain: baseSepolia, transport: baseTransport });
 const baseWallet = createWalletClient({ account, chain: baseSepolia, transport: baseWriteTransport });
