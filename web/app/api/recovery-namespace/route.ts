@@ -75,15 +75,22 @@ export async function POST(req: Request) {
       guardianLabel?: string;
       guardianAddress?: Address;
     };
-    if (!label || !account || !guardianLabel || !guardianAddress) {
+    if (!label || !account) {
+      return NextResponse.json({ error: "label and account are required" }, { status: 400 });
+    }
+    // Guardian details are optional: turning recovery on provisions the
+    // namespace by itself, so `recovery.<you>.ensign.eth` exists before there
+    // is anyone to put under it.
+    const withGuardian = Boolean(guardianLabel || guardianAddress);
+    if (withGuardian && !(guardianLabel && guardianAddress)) {
       return NextResponse.json(
-        { error: "label, account, guardianLabel and guardianAddress are required" },
+        { error: "guardianLabel and guardianAddress must be given together" },
         { status: 400 },
       );
     }
     // Labels become DNS-ish names; keep them boring so nothing downstream has
     // to guess at normalisation.
-    if (!/^[a-z0-9-]{1,63}$/.test(guardianLabel)) {
+    if (withGuardian && !/^[a-z0-9-]{1,63}$/.test(guardianLabel as string)) {
       return NextResponse.json(
         { error: "guardianLabel must be lowercase letters, digits or hyphens" },
         { status: 400 },
@@ -180,10 +187,23 @@ export async function POST(req: Request) {
       }
     }
 
+    if (!withGuardian) {
+      return NextResponse.json({
+        namespaceRegistry,
+        methodsRegistry,
+        userTokenId: userTokenId.toString(),
+        needsSetSubregistry,
+        storageRegistry: STORAGE_REGISTRY,
+        resource: null,
+        guardianName: null,
+        recoveryName: `recovery.${label}.${process.env.NEXT_PUBLIC_PARENT_NAME ?? "ensign.eth"}`,
+      });
+    }
+
     // The guardian itself: mom.recovery.<label>.ensign.eth, owned by the
     // guardian's wallet so the manager's live `ownerOf` resolves to them.
     const guardianTokenId = await read<bigint>(methodsRegistry, "getTokenId", [
-      labelId(guardianLabel),
+      labelId(guardianLabel as string),
     ]);
     const existing = await read<Address>(methodsRegistry, "ownerOf", [guardianTokenId]);
     if (existing !== "0x0000000000000000000000000000000000000000") {
@@ -196,12 +216,12 @@ export async function POST(req: Request) {
       methodsRegistry,
       encodeFunctionData({
         abi: registryAbi, functionName: "register",
-        args: [guardianLabel, guardianAddress,
+        args: [guardianLabel as string, guardianAddress as Address,
                "0x0000000000000000000000000000000000000000",
                "0x0000000000000000000000000000000000000000", ALL_ROLES, expiry],
       }),
     );
-    const mintedId = await read<bigint>(methodsRegistry, "getTokenId", [labelId(guardianLabel)]);
+    const mintedId = await read<bigint>(methodsRegistry, "getTokenId", [labelId(guardianLabel as string)]);
     const resource = await read<bigint>(methodsRegistry, "getResource", [mintedId]);
 
     return NextResponse.json({

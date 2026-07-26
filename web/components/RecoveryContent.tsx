@@ -347,10 +347,53 @@ export default function RecoveryContent() {
     }
   }
 
-  const enableRecovery = () =>
-    ownerCall("enable recovery",
-      encodeFunctionData({ abi: accountAbi, functionName: "addOwnerAddress", args: [MANAGER] }),
-      account!);
+  /**
+   * Turn recovery on: opt the account in, and build the namespace that
+   * guardians will live in.
+   *
+   * The namespace is provisioned here rather than lazily on the first guardian
+   * so `recovery.<you>.ensign.eth` exists — and resolves — the moment recovery
+   * is enabled. The platform deploys and pays for the registries; the account
+   * adds the manager as an owner and re-points its own name at them, both in a
+   * single passkey signature.
+   */
+  async function enableRecovery() {
+    if (!account || !credentialId) return;
+    setBusy("enable recovery"); setErr(null); setNote(null);
+    try {
+      const r = await fetch("/api/recovery-namespace", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ label, account }),
+      });
+      const ns = await r.json();
+      if (!r.ok) throw new Error(ns.error ?? "could not build the recovery namespace");
+
+      const calls: Array<{ to: Address; data: Hex }> = [{
+        to: account,
+        data: encodeFunctionData({
+          abi: accountAbi, functionName: "addOwnerAddress", args: [MANAGER],
+        }),
+      }];
+      if (ns.needsSetSubregistry) {
+        calls.push({
+          to: ns.storageRegistry as Address,
+          data: encodeFunctionData({
+            abi: storageAbi, functionName: "setSubregistry",
+            args: [BigInt(ns.userTokenId), ns.namespaceRegistry as Address],
+          }),
+        });
+      }
+
+      const res = await sendUserOp({ account, credentialId, calls });
+      setNote(`${ns.recoveryName} is live ✓  tx ${short(res.tx)}`);
+      await refresh();
+    } catch (e) {
+      setErr(`enable recovery failed: ${(e as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
+  }
 
   /**
    * Add a wallet guardian the way script/RecoveryDemo.s.sol does.
