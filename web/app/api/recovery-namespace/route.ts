@@ -15,6 +15,7 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
+import { namehash } from "viem/ens";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -36,6 +37,11 @@ export const dynamic = "force-dynamic";
  */
 
 const ZERO: Address = "0x0000000000000000000000000000000000000000";
+/// Canonical PermissionedResolver implementation. Registering a name with no
+/// resolver leaves it invisible: the indexer only follows names whose resolver
+/// is a proxy of this allowlisted implementation, which is why every name here
+/// gets one — the same way ENSignRegistry mints the top-level names.
+const RESOLVER_IMPL: Address = "0xdcE5205A553573FFd47629327DDdf36186022FfA";
 const STORAGE_REGISTRY: Address = "0x674cBe3246596871f18B2fe3489E09D77734fE06";
 const USER_REGISTRY_IMPL: Address = "0x0F99e7Ea74903AfCB7224d0354fD7428A6f92917";
 const VERIFIABLE_FACTORY: Address = "0xD2a632D8a8b67c2c4398c255CbD7aF8dd7236198";
@@ -48,6 +54,8 @@ const ALL_ROLES = BigInt(
 const registryAbi = parseAbi([
   "function register(string label, address owner, address registry, address resolver, uint256 roleBitmap, uint64 expiry) returns (uint256)",
   "function getSubregistry(string label) view returns (address)",
+  "function getResolver(string label) view returns (address)",
+  "function setResolver(uint256 anyId, address resolver)",
   "function getTokenId(uint256 anyId) view returns (uint256)",
   "function getResource(uint256 anyId) view returns (uint256)",
   "function getExpiry(uint256 anyId) view returns (uint64)",
@@ -60,6 +68,11 @@ const factoryAbi = parseAbi([
 
 const userRegistryAbi = parseAbi([
   "function initialize(address owner, uint256 roleBitmap)",
+]);
+
+const resolverAbi = parseAbi([
+  "function initialize(address admin, uint256 roleBitmap)",
+  "function setAddr(bytes32 node, uint256 coinType, bytes value)",
 ]);
 
 const labelId = (label: string) => BigInt(keccak256(toHex(label)));
@@ -131,6 +144,9 @@ export async function POST(req: Request) {
     // Guardian names must not outlive the name they hang off.
     const expiry = await read<bigint>(STORAGE_REGISTRY, "getExpiry", [userTokenId]);
 
+    const parent = process.env.NEXT_PUBLIC_PARENT_NAME ?? "ensign.eth";
+    const recoveryName = `recovery.${label}.${parent}`;
+
     const send = async (to: Address, data: Hex) => {
       const hash = await wallet.sendTransaction({ to, data });
       const receipt = await pub.waitForTransactionReceipt({
@@ -173,6 +189,50 @@ export async function POST(req: Request) {
       return result as Address;
     };
 
+    /**
+     * Deploy a resolver for one name and point it at `target`.
+     *
+     * Without this a name is registered but unresolvable, and the indexer skips
+     * it — the reason guardian names never showed up on the explorer. The bot
+     * is the resolver's admin so it can write the address record.
+     */
+    const deployResolver = async (name: string, target: Address): Promise<Address> => {
+      const { result } = await pub.simulateContract({
+        account: bot, address: VERIFIABLE_FACTORY, abi: factoryAbi,
+        functionName: "deployProxy",
+        args: [
+          RESOLVER_IMPL,
+          BigInt(keccak256(toHex(`ensign:res:${name}:${saltSeed}`))),
+          encodeFunctionData({
+            abi: resolverAbi, functionName: "initialize", args: [bot.address, ALL_ROLES],
+          }),
+        ],
+      });
+      const resolver = result as Address;
+      await send(
+        VERIFIABLE_FACTORY,
+        encodeFunctionData({
+          abi: factoryAbi, functionName: "deployProxy",
+          args: [
+            RESOLVER_IMPL,
+            BigInt(keccak256(toHex(`ensign:res:${name}:${saltSeed}`))),
+            encodeFunctionData({
+              abi: resolverAbi, functionName: "initialize", args: [bot.address, ALL_ROLES],
+            }),
+          ],
+        }),
+      );
+      // coinType 60 = SLIP-44 ETH, matching ENSignRegistry.
+      await send(
+        resolver,
+        encodeFunctionData({
+          abi: resolverAbi, functionName: "setAddr",
+          args: [namehash(name), 60n, target],
+        }),
+      );
+      return resolver;
+    };
+
     // Already provisioned? The user's name points at its namespace registry,
     // and `recovery` inside that points at the one holding guardians. Reading
     // it back beats tracking state we'd only have to keep in sync.
@@ -190,11 +250,27 @@ export async function POST(req: Request) {
     methodsRegistry = await read<Address>(namespaceRegistry, "getSubregistry", ["recovery"]);
     if (methodsRegistry === ZERO) {
       methodsRegistry = await deployRegistry("rec-methods");
+      const recoveryResolver = await deployResolver(recoveryName, account);
       await send(
         namespaceRegistry,
         encodeFunctionData({
           abi: registryAbi, functionName: "register",
-          args: ["recovery", account, methodsRegistry, ZERO, ALL_ROLES, expiry],
+          args: ["recovery", account, methodsRegistry, recoveryResolver, ALL_ROLES, expiry],
+        }),
+      );
+    }
+
+    // A namespace built before names carried resolvers is invisible to the
+    // indexer. Retrofit rather than leaving those accounts stranded.
+    if ((await read<Address>(namespaceRegistry, "getResolver", ["recovery"])) === ZERO) {
+      const retrofit = await deployResolver(recoveryName, account);
+      const recoveryTokenId = await read<bigint>(namespaceRegistry, "getTokenId", [
+        labelId("recovery"),
+      ]);
+      await send(
+        namespaceRegistry,
+        encodeFunctionData({
+          abi: registryAbi, functionName: "setResolver", args: [recoveryTokenId, retrofit],
         }),
       );
     }
@@ -208,7 +284,7 @@ export async function POST(req: Request) {
         storageRegistry: STORAGE_REGISTRY,
         resource: null,
         guardianName: null,
-        recoveryName: `recovery.${label}.${process.env.NEXT_PUBLIC_PARENT_NAME ?? "ensign.eth"}`,
+        recoveryName,
       });
     }
 
@@ -224,12 +300,14 @@ export async function POST(req: Request) {
         { status: 409 },
       );
     }
+    const guardianName = `${guardianLabel}.${recoveryName}`;
+    const guardianResolver = await deployResolver(guardianName, guardianAddress as Address);
     await send(
       methodsRegistry,
       encodeFunctionData({
         abi: registryAbi, functionName: "register",
         args: [guardianLabel as string, guardianAddress as Address,
-               ZERO, ZERO, ALL_ROLES, expiry],
+               ZERO, guardianResolver, ALL_ROLES, expiry],
       }),
     );
     const mintedId = await read<bigint>(methodsRegistry, "getTokenId", [labelId(guardianLabel as string)]);
@@ -242,7 +320,8 @@ export async function POST(req: Request) {
       userTokenId: userTokenId.toString(),
       needsSetSubregistry,
       storageRegistry: STORAGE_REGISTRY,
-      guardianName: `${guardianLabel}.recovery.${label}.${process.env.NEXT_PUBLIC_PARENT_NAME ?? "ensign.eth"}`,
+      guardianName,
+      recoveryName,
     });
   } catch (e) {
     const err = e as { shortMessage?: string; message?: string };
