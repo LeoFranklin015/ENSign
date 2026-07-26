@@ -142,7 +142,8 @@ we generated and deployed ourselves to match our prover — see
 | `ENSRecoveryProvider`       | [`0x8B1b…f15c`](https://sepolia.etherscan.io/address/0x8B1b7B3f634B4774F18101Ec15d24824b6E0f15c#code)    |
 | `ECDSARecoveryProvider`     | [`0x97F9…Ebf5`](https://sepolia.etherscan.io/address/0x97F9EFfAF5399a637b98359cda3cBf7493a0Ebf5#code)    |
 | `ZkEmailRecoveryProvider`   | [`0x8AD2…7E90`](https://sepolia.etherscan.io/address/0x8AD2E487a82fb14C689a5D85f6FE53EF7B427E90#code)    |
-| `EmailProofVerifier`        | [`0x3D39…69d6`](https://sepolia.etherscan.io/address/0x3D3935B3C030893f118a84C92C66dF1B9E4169d6#code)    |
+| `EmailProofVerifier`        | [`0x1a21…e1e6`](https://sepolia.etherscan.io/address/0x1a2157462dCa6CF55186a2cE25511783fA6fe1e6#code)    |
+| zkEmail DKIM registry       | [`0x3D39…69d6`](https://sepolia.etherscan.io/address/0x3D3935B3C030893f118a84C92C66dF1B9E4169d6#code)    |
 | EntryPoint v0.8             | `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108`                                                             |
 
 Built against the ENSv2 `sepolia-official-v1-20260525-r2` staging deployment.

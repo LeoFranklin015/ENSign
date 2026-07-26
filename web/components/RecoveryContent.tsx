@@ -41,6 +41,12 @@ const PROVIDER_NAMES: Record<string, string> = {
   [ZKEMAIL_PROVIDER.toLowerCase()]: "ZkEmailRecoveryProvider",
 };
 
+/// Only the name's owner may re-point its subregistry, so this goes out as a
+/// userOp from the account rather than through the platform relayer.
+const storageAbi = parseAbi([
+  "function setSubregistry(uint256 tokenId, address registry)",
+]);
+
 const managerAbi = parseAbi([
   "function addRecovery(address provider, bytes commitment, uint32 delay) returns (bytes32)",
   "function removeRecovery(bytes32 recoveryId)",
@@ -247,6 +253,7 @@ export default function RecoveryContent() {
 
   // setup form
   const [guardianAddr, setGuardianAddr] = useState("");
+  const [guardianLabel, setGuardianLabel] = useState("");
   const [delayMins, setDelayMins] = useState("0");
   const [thresholdInput, setThresholdInput] = useState("1");
 
@@ -345,17 +352,72 @@ export default function RecoveryContent() {
       encodeFunctionData({ abi: accountAbi, functionName: "addOwnerAddress", args: [MANAGER] }),
       account!);
 
-  const addEoaGuardian = () => {
+  /**
+   * Add a wallet guardian the way script/RecoveryDemo.s.sol does.
+   *
+   * The guardian gets a real subname — `mom.recovery.<you>.ensign.eth`, minted
+   * to their wallet — and the commitment stored on-chain points at that NAME,
+   * not at the address. The manager then resolves `ownerOf` live, so the
+   * guardian can move wallets and stay a guardian.
+   *
+   * Two transactions in one signature: the platform mints the namespace and the
+   * guardian name (it pays, and owning those registries grants no authority),
+   * then the account re-points its own name at the namespace and registers the
+   * recovery. That re-pointing is the one step only the passkey can authorise.
+   */
+  async function addEnsGuardian() {
     const g = guardianAddr.trim() as Address;
+    const gl = guardianLabel.trim().toLowerCase();
     if (!/^0x[0-9a-fA-F]{40}$/.test(g)) { setErr("guardian must be a 0x address"); return; }
-    const commitment = encodeAbiParameters([{ type: "address" }], [g]);
-    const delay = Math.max(0, Math.floor(Number(delayMins) || 0)) * 60;
-    return ownerCall(`add guardian ${short(g)}`,
-      encodeFunctionData({
-        abi: managerAbi, functionName: "addRecovery",
-        args: [ECDSA_PROVIDER, commitment, delay],
-      }), MANAGER);
-  };
+    if (!/^[a-z0-9-]{1,63}$/.test(gl)) {
+      setErr("name must be lowercase letters, digits or hyphens"); return;
+    }
+    if (!account || !credentialId) return;
+
+    setBusy(`add ${gl}`); setErr(null); setNote(null);
+    try {
+      const r = await fetch("/api/recovery-namespace", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ label, account, guardianLabel: gl, guardianAddress: g }),
+      });
+      const ns = await r.json();
+      if (!r.ok) throw new Error(ns.error ?? "could not mint the guardian name");
+
+      const commitment = encodeAbiParameters(
+        [{ type: "address" }, { type: "uint256" }],
+        [ns.methodsRegistry as Address, BigInt(ns.resource)],
+      );
+      const delay = Math.max(0, Math.floor(Number(delayMins) || 0)) * 60;
+
+      const calls: Array<{ to: Address; data: Hex }> = [];
+      if (ns.needsSetSubregistry) {
+        calls.push({
+          to: ns.storageRegistry as Address,
+          data: encodeFunctionData({
+            abi: storageAbi, functionName: "setSubregistry",
+            args: [BigInt(ns.userTokenId), ns.namespaceRegistry as Address],
+          }),
+        });
+      }
+      calls.push({
+        to: MANAGER,
+        data: encodeFunctionData({
+          abi: managerAbi, functionName: "addRecovery",
+          args: [ENS_PROVIDER, commitment, delay],
+        }),
+      });
+
+      const res = await sendUserOp({ account, credentialId, calls });
+      setNote(`${ns.guardianName} added ✓  tx ${short(res.tx)}`);
+      setGuardianLabel(""); setGuardianAddr("");
+      await refresh();
+    } catch (e) {
+      setErr(`add guardian failed: ${(e as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
+  }
 
   /**
    * Register an email guardian. The commitment is (accountSalt, domain) where
@@ -1007,6 +1069,18 @@ export default function RecoveryContent() {
               {pane === "eoa" && (
                 <div className="ag-section">
                   <div className="ag-field">
+                    <label className="ag-field-label">Call them</label>
+                    <input
+                      className="ag-input" placeholder="mom"
+                      value={guardianLabel}
+                      onChange={(e) => setGuardianLabel(e.target.value)}
+                    />
+                    <span className="ag-hint">
+                      becomes {guardianLabel.trim().toLowerCase() || "mom"}.recovery.
+                      {label || "you"}.{PARENT_NAME}
+                    </span>
+                  </div>
+                  <div className="ag-field">
                     <label className="ag-field-label">Their address</label>
                     <input
                       className="ag-input" placeholder="0x…"
@@ -1051,7 +1125,7 @@ export default function RecoveryContent() {
                 <button
                   className="ds-btn ds-btn--block"
                   disabled={!!busy}
-                  onClick={pane === "eoa" ? addEoaGuardian : addEmailGuardian}
+                  onClick={pane === "eoa" ? addEnsGuardian : addEmailGuardian}
                 >
                   {busy ? "Approving…" : "Add guardian"}
                 </button>
