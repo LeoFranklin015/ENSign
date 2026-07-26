@@ -15,6 +15,7 @@ import { getSession, saveSession } from "@/lib/session";
 import { Nav } from "@/components/Nav";
 import { MultiStepLoader, type Step } from "@/components/MultiStepLoader";
 import { BookmarkletLink } from "@/components/BookmarkletLink";
+import { EnsignMark } from "@/components/EnsignMark";
 
 const SIGNUP_STEPS: Step[] = [
   {
@@ -307,7 +308,7 @@ export default function AppContent() {
         {/* the product's most telling screen: "From" is a name, gas is sponsored */}
         <div className="ds-signer ds-rise" style={rise(300)}>
           <div className="ds-signer-bar">
-            <span className="ds-signer-mark">◈</span>
+            <span className="ds-signer-mark"><EnsignMark size={15} /></span>
             <span className="ds-signer-brand">ENSign</span>
             <span className="ds-signer-net"><i />Sepolia</span>
           </div>
@@ -529,6 +530,9 @@ export default function AppContent() {
                     draggable
                     title="Drag me to your bookmarks bar"
                   >
+                    {/* An <svg> adds nothing to textContent, so the saved
+                        bookmark is still titled "ENSign". */}
+                    <EnsignMark size={13} />
                     ENSign
                   </BookmarkletLink>
                   <span className="ds-won-hint">
