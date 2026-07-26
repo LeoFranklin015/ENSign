@@ -19,7 +19,7 @@ type Props = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "children"> 
   children: ReactNode;
 };
 
-export function BookmarkletLink({ href, children, onDragStart, onClick, ...rest }: Props) {
+export function BookmarkletLink({ href, children, onClick, ...rest }: Props) {
   const ref = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
@@ -30,13 +30,9 @@ export function BookmarkletLink({ href, children, onDragStart, onClick, ...rest 
     <a
       {...rest}
       ref={ref}
-      onDragStart={(e) => {
-        // Belt and braces: a drag carries this payload rather than the
-        // attribute, so the bookmark is correct even if the href is rewritten.
-        e.dataTransfer.setData("text/uri-list", href);
-        e.dataTransfer.setData("text/plain", href);
-        onDragStart?.(e);
-      }}
+      // Deliberately no onDragStart. Writing to dataTransfer replaces the
+      // payload the browser assembles for a link drag, and the bookmark title
+      // comes from that payload — overriding it saves a nameless bookmark.
       // Clicking it here would inject the connector into our own page.
       onClick={(e) => {
         e.preventDefault();

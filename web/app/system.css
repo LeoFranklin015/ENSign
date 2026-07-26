@@ -777,6 +777,9 @@
   text-decoration: none; cursor: grab; flex: none;
   box-shadow: 0 6px 16px -8px rgba(14,33,22,.5);
 }
+/* Decorative, and kept out of the markup on purpose: dragging the link saves a
+   bookmark titled after its text, so a glyph in there ends up in the name. */
+.ds-won-pill::before { content: "◈"; }
 .ds-won-pill:active { cursor: grabbing; }
 .ds-won-hint { font-size: 12.5px; line-height: 1.5; color: var(--on-paper-soft); }
 .ds-won-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin-top: 18px; }

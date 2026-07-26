@@ -529,7 +529,7 @@ export default function AppContent() {
                     draggable
                     title="Drag me to your bookmarks bar"
                   >
-                    ◈ ENSign
+                    ENSign
                   </BookmarkletLink>
                   <span className="ds-won-hint">
                     Drag this to your bookmarks bar to use your name on any dApp.
