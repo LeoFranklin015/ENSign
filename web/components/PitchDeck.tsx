@@ -16,6 +16,7 @@ const SLIDES = [
   { id: "cover", label: "ENSign" },
   { id: "what", label: "the idea" },
   { id: "recovery", label: "recovery" },
+  { id: "quorum", label: "m of n" },
   { id: "live", label: "live" },
 ] as const;
 
@@ -121,52 +122,161 @@ export default function PitchDeck() {
       {/* ── 03 · recovery ── */}
       <section ref={setRef(2)} className="ds-slide">
         <div className="ds-slide-in">
-          <p className="ds-slide-eyebrow" data-r style={d(0)}>Recovery</p>
-          <h2 className="ds-slide-h" data-r style={d(120)}>
-            Guardians are <em>names</em>, not addresses.
-          </h2>
-          <p className="ds-slide-sub" data-r style={d(240)}>
-            A passkey wallet has nothing to write down — which is the point, and the risk.
-            So recovery hangs off the same tree the wallet does.
-          </p>
+          <div className="ds-deck-cols">
+            <div>
+              <p className="ds-slide-eyebrow" data-r style={d(0)}>Recovery</p>
+              <h2 className="ds-slide-h" data-r style={d(120)}>
+                Your guardian is a <em>name</em>.
+              </h2>
+              <p className="ds-slide-sub" data-r style={d(240)}>
+                A passkey wallet has nothing to write down. That is the point, and the risk.
+                So add your mom as a guardian and she becomes a subname under yours,
+                mom.recovery.leo.ensign.eth — a real ENS record, not a row in our database.
+              </p>
+              <p className="ds-slide-sub" data-r style={{ ...d(320), marginTop: 16 }}>
+                She does not need a wallet. Add her email and she approves by hitting reply;
+                zkEmail proves it was her without her address ever touching the chain.
+              </p>
+            </div>
 
-          <div className="ds-deck-list">
-            <div className="ds-deck-item" data-r style={d(380)}>
-              <b>01</b>
-              <p>
-                You add guardians — <strong>a wallet, or an email</strong>. Each becomes a
-                subname under yours.
-              </p>
-            </div>
-            <div className="ds-deck-item" data-r style={d(470)}>
-              <b>02</b>
-              <p>
-                Lose the device and anyone can open your recovery link. Guardians approve by
-                <strong> signing, or by replying to an email</strong> — proved with zkEmail, so
-                the address never touches the chain.
-              </p>
-            </div>
-            <div className="ds-deck-item" data-r style={d(560)}>
-              <b>03</b>
-              <p>
-                At threshold, a new passkey is installed after a timelock. Guardians can
-                <strong> only add a key</strong> — never move funds — and you can veto the
-                whole thing while it waits.
-              </p>
-            </div>
-            <div className="ds-deck-item" data-r style={d(650)}>
-              <b>04</b>
-              <p>
-                Because guardians are names, one who <strong>changes wallet keeps working</strong>,
-                and one whose name expires drops out of the quorum by itself.
+            <div data-r style={d(420)}>
+              <div className="ds-tree">
+                <div className="ds-tree-row">
+                  <span className="ds-tree-k">leo.ensign.eth</span>
+                  <span className="ds-tree-tag">the wallet</span>
+                </div>
+                <div className="ds-tree-row ds-tree-l1">
+                  <span className="ds-tree-branch">└─</span>
+                  <span className="ds-tree-k">recovery</span>
+                  <span className="ds-tree-tag">guardian namespace</span>
+                </div>
+                <div className="ds-tree-row ds-tree-l2 ds-tree-row--g">
+                  <span className="ds-tree-branch">├─</span>
+                  <span className="ds-tree-k">mom</span>
+                  <span className="ds-tree-tag">wallet · signs</span>
+                </div>
+                <div className="ds-tree-row ds-tree-l2 ds-tree-row--g">
+                  <span className="ds-tree-branch">├─</span>
+                  <span className="ds-tree-k">dad</span>
+                  <span className="ds-tree-tag">email · zkEmail</span>
+                </div>
+                <div className="ds-tree-row ds-tree-l2 ds-tree-row--g">
+                  <span className="ds-tree-branch">└─</span>
+                  <span className="ds-tree-k">safe</span>
+                  <span className="ds-tree-tag">multisig · ERC-1271</span>
+                </div>
+              </div>
+              <p style={{ marginTop: 14, fontSize: 13, lineHeight: 1.6, color: "var(--on-paper-soft)" }}>
+                Because mom is a <em>name</em>, she can move to a new wallet and stay your
+                guardian. A name that expires drops out of the quorum by itself.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── 04 · live ── */}
+      {/* ── 04 · M-of-N ── */}
       <section ref={setRef(3)} className="ds-slide">
+        <div className="ds-slide-in">
+          <div className="ds-deck-cols">
+            <div>
+              <p className="ds-slide-eyebrow" data-r style={d(0)}>M of N</p>
+              <h2 className="ds-slide-h" data-r style={d(120)}>
+                Two of three, then a <em>pause</em>.
+              </h2>
+              <p className="ds-slide-sub" data-r style={d(240)}>
+                You choose how many guardians have to agree. The manager verifies each approval
+                on-chain, counts them against your threshold, and queues the change behind a
+                timelock you can cancel.
+              </p>
+
+              <div className="ds-tree" data-r style={{ ...d(340), marginTop: 22 }}>
+                <div className="ds-tree-row">
+                  <span className="ds-tree-k">ENSignRecoveryManager</span>
+                  <span className="ds-tree-tag">holds no proof logic</span>
+                </div>
+                <div className="ds-tree-row ds-tree-l1 ds-tree-row--g">
+                  <span className="ds-tree-branch">├─</span>
+                  <span className="ds-tree-k">ENSRecoveryProvider</span>
+                  <span className="ds-tree-tag">a name</span>
+                </div>
+                <div className="ds-tree-row ds-tree-l1 ds-tree-row--g">
+                  <span className="ds-tree-branch">├─</span>
+                  <span className="ds-tree-k">ZkEmailRecoveryProvider</span>
+                  <span className="ds-tree-tag">an email</span>
+                </div>
+                <div className="ds-tree-row ds-tree-l1 ds-tree-row--g">
+                  <span className="ds-tree-branch">└─</span>
+                  <span className="ds-tree-k">ECDSARecoveryProvider</span>
+                  <span className="ds-tree-tag">a backup key</span>
+                </div>
+                <div className="ds-quorum" style={{ marginTop: 18 }}>
+                  <i className="on" /><i className="on" /><i />
+                  <b>2 of 3 — threshold met</b>
+                </div>
+              </div>
+              <p style={{ marginTop: 14, fontSize: 13, lineHeight: 1.6, color: "var(--on-paper-soft)" }}>
+                A new way to recover is a new provider contract, not a migration.
+              </p>
+            </div>
+
+            <div className="ds-flow">
+              <div className="ds-flow-step" data-r style={d(420)}>
+                <div className="ds-flow-n">01</div>
+                <div>
+                  <b>Anyone opens your link</b>
+                  <span>
+                    The recovery page is public and keyed by your name. You have lost your
+                    device — you do not need to be there.
+                  </span>
+                </div>
+              </div>
+              <div className="ds-flow-step" data-r style={d(500)}>
+                <div className="ds-flow-n">02</div>
+                <div>
+                  <b>Guardians approve</b>
+                  <span>
+                    Mom signs, or replies to an email. Each proof is bound to your account and
+                    its nonce, so it authorises exactly one recovery.
+                  </span>
+                </div>
+              </div>
+              <div className="ds-flow-step" data-r style={d(580)}>
+                <div className="ds-flow-n">03</div>
+                <div>
+                  <b>Threshold met, clock starts</b>
+                  <span>
+                    The request waits out the longest delay any approving guardian set — so one
+                    cautious guardian cannot be routed around.
+                  </span>
+                </div>
+              </div>
+              <div className="ds-flow-step ds-flow-step--veto" data-r style={d(660)}>
+                <div className="ds-flow-n">04</div>
+                <div>
+                  <b>You can cancel</b>
+                  <span>
+                    If it was not you, veto it while it waits. Only the account can.
+                  </span>
+                </div>
+              </div>
+              <div className="ds-flow-step" data-r style={d(740)}>
+                <div className="ds-flow-n">05</div>
+                <div>
+                  <b>A new passkey goes in</b>
+                  <span>
+                    The only thing recovery can ever do. It cannot move funds, remove you, or
+                    change your threshold.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 05 · live ── */}
+      <section ref={setRef(4)} className="ds-slide">
         <div className="ds-slide-in" style={{ textAlign: "center" }}>
           <p className="ds-slide-eyebrow" data-r style={d(0)}>Working today</p>
           <h2 className="ds-slide-h" data-r style={d(120)}>
