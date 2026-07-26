@@ -183,7 +183,7 @@
 /* Two columns: narrative left, the single action right. Stacking these in one
    centred column left ~700px dead on each side and doubled the page height. */
 .ds-hero {
-  padding: 52px 0 60px;
+  padding: 46px 0 34px;
   display: grid;
   grid-template-columns: 1.02fr 0.98fr;
   gap: 60px;
@@ -500,3 +500,21 @@
 /* the closing coda centres its own CTA — .ds-hero-cta is left-aligned now
    that the hero is a two-column grid */
 .ds-band--close .ds-hero-cta { justify-content: center; }
+
+/* ── hero tree at full scale ───────────────────────────────────────────────
+   With the records rows gone the tree carries the slab alone, so it gets
+   room to breathe and a readable size rather than dashboard density.       */
+
+.ds-panel--tall {
+  min-height: 384px;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 26px 24px;
+}
+
+.ds-tree--lg { font-size: 15px; }
+.ds-tree--lg .ds-node { padding: 11px 15px; border-radius: 11px; gap: 12px; }
+.ds-tree--lg .ds-node--root { font-size: 16px; }
+.ds-tree--lg .ds-node--child { margin-left: 30px; }
+.ds-tree--lg .ds-node--child::before { left: -16px; top: -9px; }
+.ds-tree--lg .ds-node--child::after { left: -16px; width: 13px; }
+.ds-tree--lg .ds-node-tag { font-size: 10.5px; padding: 4px 10px; }

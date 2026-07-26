@@ -288,11 +288,11 @@ export default function AppContent() {
             <span className="ds-tab ds-tab--on">Name tree</span>
             <span className="ds-live"><i className="ds-dot" /> ENS v2 · Sepolia</span>
           </div>
-          <div className="ds-panel">
-            <div className="ds-tree">
+          <div className="ds-panel ds-panel--tall">
+            <div className="ds-tree ds-tree--lg">
               <div className="ds-node ds-node--root">
                 {previewName}
-                <span className="ds-node-tag ds-node-tag--live">wallet</span>
+                <span className="ds-node-tag ds-node-tag--live">{previewAddr}</span>
               </div>
               <div className="ds-node ds-node--child" style={{ marginTop: 6 }}>
                 trader<span className="ds-node-tag">usdc · 10/day</span>
@@ -309,13 +309,6 @@ export default function AppContent() {
               <div className="ds-node ds-node--child" style={{ marginLeft: 52, opacity: 0.75 }}>
                 email<span className="ds-node-tag">zkemail</span>
               </div>
-            </div>
-          </div>
-          <div className="ds-panel" style={{ marginTop: 12 }}>
-            <div className="ds-rows">
-              <div className="ds-row"><span>addr</span><b>{previewAddr}</b></div>
-              <div className="ds-row"><span>credentialId</span><b>passkey</b></div>
-              <div className="ds-row"><span>registry</span><b>0x674c…fE06</b></div>
             </div>
           </div>
         </div>
