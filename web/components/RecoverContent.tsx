@@ -52,7 +52,12 @@ const managerAbi = parseAbi([
 
 const zkProviderAbi = parseAbi([
   "function expectedCommand(address account, uint256 nonce, bytes subject) pure returns (string)",
+  "function recoveryHash(address account, uint256 nonce, bytes subject) pure returns (bytes32)",
 ]);
+
+const ZK_DKIM_REGISTRY = "0x3D3935B3C030893f118a84C92C66dF1B9E4169d6";
+/// Must render to exactly what ZkEmailRecoveryProvider.expectedCommand returns.
+const COMMAND_TEMPLATE = "Recover account {ethAddr} using recovery hash {string}";
 
 type Recovery = { provider: Address; commitment: Hex; delay: number };
 
@@ -165,6 +170,8 @@ export default function RecoverContent() {
   const [accountCode, setAccountCode] = useState("");
   const [emailCommand, setEmailCommand] = useState<string | null>(null);
   const [tab, setTab] = useState<"wallet" | "email">("wallet");
+  const [guardianEmail, setGuardianEmail] = useState("");
+  const [emailStatus, setEmailStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
@@ -227,7 +234,7 @@ export default function RecoverContent() {
     setBusy(kind); setErr(null);
     try {
       const c = kind === "injected"
-        ? await connectInjected()
+        ? await connectInjected(CHAIN_ID)
         : await connectWalletConnect(CHAIN_ID);
       setConn(c);
       setNote(`connected ${short(c.address)} via ${c.via === "injected" ? "browser wallet" : "WalletConnect"}`);
@@ -252,7 +259,7 @@ export default function RecoverContent() {
     if (!newKey || !target) return;
     setBusy("sign"); setErr(null);
     try {
-      const c = conn ?? await connectInjected();
+      const c = conn ?? await connectInjected(CHAIN_ID);
       if (!conn) setConn(c);
       const addr = c.address;
       const client = createWalletClient({ chain: CHAIN, transport: custom(c.provider) });
@@ -317,7 +324,96 @@ export default function RecoverContent() {
     } finally { setBusy(null); }
   }
 
-  /// Prove a saved .eml through our own prover, then attach it as an approval.
+  /**
+   * Email the guardian and wait for their reply to come back as a proof.
+   * Asking someone to export a .eml from Gmail is a hostile request; this is
+   * the same cryptography with a reply as the only human step.
+   */
+  async function sendApprovalEmail() {
+    if (!newKey || !target) return;
+    if (!accountCode) { setErr("paste the account code saved when this guardian was added"); return; }
+    const guardian = emailGuardians[0];
+    if (!guardian) { setErr("no email guardian on this account"); return; }
+
+    setBusy("email"); setErr(null);
+    try {
+      const subject = encodeAbiParameters(
+        [{ type: "bytes32" }, { type: "bytes32" }], [newKey.qx, newKey.qy],
+      );
+      const hash = await publicClient.readContract({
+        address: ZKEMAIL_PROVIDER, abi: zkProviderAbi,
+        functionName: "recoveryHash", args: [target, nonce, subject],
+      }) as Hex;
+
+      setEmailStatus("sending…");
+      const sub = await fetch("/api/zkemail-relay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "submit",
+          body: {
+            dkimContractAddress: ZK_DKIM_REGISTRY,
+            accountCode,
+            codeExistsInEmail: true,
+            commandTemplate: COMMAND_TEMPLATE,
+            commandParams: [target, hash],
+            templateId: "0x1",
+            emailAddress: guardianEmail.trim(),
+            subject: "Approve an ENSign account recovery",
+            body: "Reply to this email to approve installing a new passkey.",
+          },
+        }),
+      });
+      const subJson = (await sub.json()) as { id?: string; error?: string };
+      if (!sub.ok || !subJson.id) throw new Error(subJson.error ?? `HTTP ${sub.status}`);
+      setEmailStatus("email sent — the guardian replies, then this picks it up");
+
+      // Poll until the reply has been ingested and proved.
+      for (let i = 0; i < 240; i++) {
+        await new Promise((r) => setTimeout(r, 5000));
+        const st = await fetch("/api/zkemail-relay", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "status", id: subJson.id }),
+        });
+        const stJson = (await st.json()) as {
+          status?: string; proof?: EmailProofJson; error?: string;
+        };
+        setEmailStatus(`relayer: ${stJson.status ?? "…"}`);
+        if (stJson.proof) {
+          attachProof(stJson.proof, guardian);
+          setEmailStatus(`approval received — "${stJson.proof.maskedCommand}"`);
+          return;
+        }
+        if (stJson.status === "Failed") throw new Error("the relayer reported a failure");
+      }
+      throw new Error("timed out waiting for the reply");
+    } catch (e) {
+      setErr(`email approval failed: ${(e as Error).message}`);
+      setEmailStatus(null);
+    } finally { setBusy(null); }
+  }
+
+  /// Shared by both the emailed and the manually-proved routes.
+  function attachProof(proof: EmailProofJson, guardian: Recovery) {
+    if (!target) return;
+    const recoveryId = keccak256(
+      encodeAbiParameters(
+        [{ type: "address" }, { type: "address" }, { type: "bytes" }],
+        [target, guardian.provider, guardian.commitment],
+      ),
+    );
+    setSigs((prev) =>
+      prev.some((x) => x.recoveryId === recoveryId)
+        ? prev
+        : [...prev, {
+            recoveryId,
+            proof: encodeEmailProof(proof),
+            signer: `email @${proof.domainName}`,
+          }]);
+  }
+
+  /// Fallback when no relayer is reachable: prove a saved .eml directly.
   async function proveEml(file: File) {
     if (!target) return;
     if (!accountCode) { setErr("paste the account code saved when this guardian was added"); return; }
@@ -338,20 +434,7 @@ export default function RecoverContent() {
       const json = (await res.json()) as { proof?: EmailProofJson; error?: string };
       if (!res.ok || !json.proof) throw new Error(json.error ?? `HTTP ${res.status}`);
 
-      const recoveryId = keccak256(
-        encodeAbiParameters(
-          [{ type: "address" }, { type: "address" }, { type: "bytes" }],
-          [target, guardian.provider, guardian.commitment],
-        ),
-      );
-      setSigs((prev) =>
-        prev.some((x) => x.recoveryId === recoveryId)
-          ? prev
-          : [...prev, {
-              recoveryId,
-              proof: encodeEmailProof(json.proof!),
-              signer: `email @${json.proof!.domainName}`,
-            }]);
+      attachProof(json.proof, guardian);
       setNote(`email approval attached — "${json.proof.maskedCommand}"`);
     } catch (e) {
       setErr(`proving failed: ${(e as Error).message}`);
@@ -363,7 +446,7 @@ export default function RecoverContent() {
     if (!newKey || !target) return;
     setBusy("submit"); setErr(null);
     try {
-      const c = conn ?? await connectInjected();
+      const c = conn ?? await connectInjected(CHAIN_ID);
       if (!conn) setConn(c);
       const addr = c.address;
       const client = createWalletClient({ chain: CHAIN, transport: custom(c.provider) });
@@ -398,7 +481,7 @@ export default function RecoverContent() {
     if (!requestId) return;
     setBusy("execute"); setErr(null);
     try {
-      const c = conn ?? await connectInjected();
+      const c = conn ?? await connectInjected(CHAIN_ID);
       if (!conn) setConn(c);
       const addr = c.address;
       const client = createWalletClient({ chain: CHAIN, transport: custom(c.provider) });
@@ -587,36 +670,68 @@ export default function RecoverContent() {
                       <p className="ag-hint">This account has no email guardians.</p>
                     ) : (
                       <>
-                        <button className="ghost" disabled={!!busy || !newKey} onClick={showCommand}>
-                          {busy === "command" ? "…" : "Show the line to email"}
+                        <div className="ag-field">
+                          <label className="ag-field-label">Guardian&apos;s email</label>
+                          <input
+                            className="ag-input"
+                            placeholder="mom@gmail.com"
+                            value={guardianEmail}
+                            onChange={(e) => setGuardianEmail(e.target.value)}
+                          />
+                        </div>
+                        <div className="ag-field" style={{ marginTop: 12 }}>
+                          <label className="ag-field-label">Account code</label>
+                          <input
+                            className="ag-input"
+                            placeholder="0x… saved when this guardian was added"
+                            value={accountCode}
+                            onChange={(e) => setAccountCode(e.target.value.trim())}
+                          />
+                        </div>
+
+                        <button
+                          className="ds-btn ds-btn--block" style={{ marginTop: 14 }}
+                          disabled={!!busy || !newKey || !accountCode || !guardianEmail.trim()}
+                          onClick={sendApprovalEmail}
+                        >
+                          {busy === "email" ? "Waiting for their reply…" : "Send approval email"}
                         </button>
-                        {emailCommand && (
-                          <div className="ds-codebox" style={{ marginTop: 12 }}>
-                            <code>{emailCommand}</code>
-                            <button
-                              className="ds-copy"
-                              onClick={() => navigator.clipboard?.writeText(emailCommand)}
-                            >
-                              Copy
-                            </button>
-                          </div>
+
+                        {emailStatus && (
+                          <p className="ag-hint" style={{ marginTop: 10 }}>{emailStatus}</p>
                         )}
-                        <p className="ag-hint" style={{ marginTop: 12 }}>
-                          The guardian emails that line to themselves, then saves the message
-                          (Gmail → ⋮ → Show original → Download original) and drops it here.
+
+                        <p className="ag-hint" style={{ marginTop: 10 }}>
+                          They just reply to the email. The proof is generated from their
+                          reply — the address never touches the chain.
                         </p>
-                        <input
-                          className="ag-input" style={{ marginTop: 12 }}
-                          placeholder="account code saved when this guardian was added"
-                          value={accountCode}
-                          onChange={(e) => setAccountCode(e.target.value.trim())}
-                        />
-                        <input
-                          type="file" accept=".eml,message/rfc822"
-                          className="ag-input" style={{ marginTop: 10 }}
-                          disabled={!!busy || !newKey || !accountCode}
-                          onChange={(e) => { const f = e.target.files?.[0]; if (f) void proveEml(f); }}
-                        />
+
+                        <details style={{ marginTop: 14 }}>
+                          <summary className="ag-hint">no relayer? prove a saved .eml instead</summary>
+                          <button
+                            className="ghost" style={{ marginTop: 10 }}
+                            disabled={!!busy || !newKey} onClick={showCommand}
+                          >
+                            {busy === "command" ? "…" : "Show the line to email"}
+                          </button>
+                          {emailCommand && (
+                            <div className="ds-codebox" style={{ marginTop: 10 }}>
+                              <code>{emailCommand}</code>
+                              <button
+                                className="ds-copy"
+                                onClick={() => navigator.clipboard?.writeText(emailCommand)}
+                              >
+                                Copy
+                              </button>
+                            </div>
+                          )}
+                          <input
+                            type="file" accept=".eml,message/rfc822"
+                            className="ag-input" style={{ marginTop: 10 }}
+                            disabled={!!busy || !newKey || !accountCode}
+                            onChange={(e) => { const f = e.target.files?.[0]; if (f) void proveEml(f); }}
+                          />
+                        </details>
                       </>
                     )}
                   </>
