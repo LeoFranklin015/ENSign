@@ -27,9 +27,13 @@ export const ENTRYPOINT = req("NEXT_PUBLIC_ENTRYPOINT") as Address;
  * monthly credits. One provider dying should degrade us, not stop us — so the
  * configured endpoint is tried first and public ones back it up.
  */
+/// drpc first, deliberately. Our relayer is an EIP-7702 delegated account, and
+/// publicnode caps in-flight transactions for those — a multi-transaction flow
+/// fails partway with "in-flight transaction limit reached". It is fine for
+/// reads, so it stays in the list, just never as the first choice for a write.
 const SEPOLIA_FALLBACKS = [
-  "https://ethereum-sepolia-rpc.publicnode.com",
   "https://sepolia.drpc.org",
+  "https://ethereum-sepolia-rpc.publicnode.com",
 ];
 const BASE_SEPOLIA_FALLBACKS = ["https://sepolia.base.org"];
 

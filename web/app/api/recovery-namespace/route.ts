@@ -10,6 +10,7 @@ import {
   keccak256,
   parseAbi,
   toHex,
+  type Abi,
   type Address,
   type Hex,
 } from "viem";
@@ -74,6 +75,22 @@ const resolverAbi = parseAbi([
   "function initialize(address admin, uint256 roleBitmap)",
   "function setAddr(bytes32 node, uint256 coinType, bytes value)",
 ]);
+
+/**
+ * Explicit gas limits, deliberately generous.
+ *
+ * These transactions are broadcast together without waiting, so a call that
+ * depends on a contract deployed one nonce earlier would be estimated against
+ * state where that contract has no code — coming back at ~21k and running out
+ * mid-execution. Measured usage is ~176k for a deploy and ~70k for a register;
+ * unused gas is refunded, so headroom costs nothing.
+ */
+const GAS = {
+  deploy: 500_000n,
+  register: 400_000n,
+  setAddr: 250_000n,
+  setResolver: 200_000n,
+} as const;
 
 const labelId = (label: string) => BigInt(keccak256(toHex(label)));
 
@@ -147,91 +164,85 @@ export async function POST(req: Request) {
     const parent = process.env.NEXT_PUBLIC_PARENT_NAME ?? "ensign.eth";
     const recoveryName = `recovery.${label}.${parent}`;
 
-    const send = async (to: Address, data: Hex) => {
-      const hash = await wallet.sendTransaction({ to, data });
-      const receipt = await pub.waitForTransactionReceipt({
-        hash, timeout: 45_000, pollingInterval: 2_000,
-      });
-      if (receipt.status !== "success") throw new Error(`tx reverted: ${hash}`);
-      return hash;
-    };
     /**
-     * Deploy a fresh UserRegistry proxy through the VerifiableFactory.
+     * Send transactions concurrently.
      *
-     * The salt carries a per-request seed rather than being derived from the
-     * label alone. A label-only salt looks tidier but is a trap: provisioning
-     * ends with a userOp the client may never send, so the account can be left
-     * with registries and no pointer at them. Retrying then hits CREATE2 at an
-     * occupied address and reverts, which is exactly the dead end this replaces.
-     * A retry now simply builds a new namespace; the earlier one is unreferenced
-     * and harmless, and no guardian can exist under it yet.
+     * Every hop here costs a block, so doing five of them in series put ~70s in
+     * front of the passkey prompt. Only genuinely dependent steps are ordered
+     * now; the rest go out together under explicit sequential nonces, because
+     * viem's automatic nonce would hand the same one to parallel sends.
      */
-    const deployRegistry = async (tag: string): Promise<Address> => {
-      const salt = BigInt(keccak256(toHex(`ensign:${tag}:${label}:${saltSeed}`)));
-      const data = encodeFunctionData({
-        abi: userRegistryAbi,
-        functionName: "initialize",
-        args: [bot.address, ALL_ROLES],
-      });
-      // deployProxy returns the address but a receipt won't carry it, so read
-      // it off a simulation of the very call we are about to send.
-      const { result } = await pub.simulateContract({
-        account: bot, address: VERIFIABLE_FACTORY, abi: factoryAbi,
-        functionName: "deployProxy", args: [USER_REGISTRY_IMPL, salt, data],
-      });
-      await send(
-        VERIFIABLE_FACTORY,
-        encodeFunctionData({
-          abi: factoryAbi, functionName: "deployProxy",
-          args: [USER_REGISTRY_IMPL, salt, data],
-        }),
+    let nonce = await pub.getTransactionCount({ address: bot.address, blockTag: "pending" });
+    const sent: Hex[] = [];
+    /**
+     * Broadcast without waiting for receipts.
+     *
+     * Waiting cost a block per hop and put ~60s in front of the passkey prompt.
+     * Nothing here needs a receipt: proxy addresses come from simulation, and
+     * the resource id is derived off-chain. Explicit sequential nonces both let
+     * these go out together and guarantee execution order, so a register that
+     * depends on a deploy still sees it even in the same block.
+     */
+    const sendMany = async (txs: Array<{ to: Address; data: Hex; gas: bigint }>) => {
+      const hashes = await Promise.all(
+        txs.map((t) => wallet.sendTransaction({ ...t, nonce: nonce++ })),
       );
-      return result as Address;
+      sent.push(...hashes);
+      return hashes;
     };
+    const send = (to: Address, data: Hex, gas: bigint) => sendMany([{ to, data, gas }]);
 
     /**
-     * Deploy a resolver for one name and point it at `target`.
+     * Build (not send) a proxy deployment, returning the address it will land at.
      *
-     * Without this a name is registered but unresolvable, and the indexer skips
-     * it — the reason guardian names never showed up on the explorer. The bot
-     * is the resolver's admin so it can write the address record.
+     * The address comes from simulating the call, so callers can wire it into
+     * other transactions and fire the whole set concurrently. Salts carry a
+     * per-request seed: provisioning ends with a userOp the client may never
+     * send, so a label-derived salt would make a retry collide with the
+     * registries the previous attempt left behind, and CREATE2 reverts on an
+     * occupied address.
      */
-    const deployResolver = async (name: string, target: Address): Promise<Address> => {
+    const proxyTx = async (tag: string, impl: Address, initAbi: Abi) => {
+      const salt = BigInt(keccak256(toHex(`ensign:${tag}:${label}:${saltSeed}`)));
+      const data = encodeFunctionData({
+        abi: initAbi, functionName: "initialize", args: [bot.address, ALL_ROLES],
+      } as never);
+      const args = [impl, salt, data] as const;
       const { result } = await pub.simulateContract({
         account: bot, address: VERIFIABLE_FACTORY, abi: factoryAbi,
-        functionName: "deployProxy",
-        args: [
-          RESOLVER_IMPL,
-          BigInt(keccak256(toHex(`ensign:res:${name}:${saltSeed}`))),
-          encodeFunctionData({
-            abi: resolverAbi, functionName: "initialize", args: [bot.address, ALL_ROLES],
-          }),
-        ],
+        functionName: "deployProxy", args,
       });
-      const resolver = result as Address;
-      await send(
-        VERIFIABLE_FACTORY,
-        encodeFunctionData({
-          abi: factoryAbi, functionName: "deployProxy",
-          args: [
-            RESOLVER_IMPL,
-            BigInt(keccak256(toHex(`ensign:res:${name}:${saltSeed}`))),
-            encodeFunctionData({
-              abi: resolverAbi, functionName: "initialize", args: [bot.address, ALL_ROLES],
-            }),
-          ],
-        }),
-      );
-      // coinType 60 = SLIP-44 ETH, matching ENSignRegistry.
-      await send(
-        resolver,
-        encodeFunctionData({
-          abi: resolverAbi, functionName: "setAddr",
-          args: [namehash(name), 60n, target],
-        }),
-      );
-      return resolver;
+      return {
+        address: result as Address,
+        tx: {
+          to: VERIFIABLE_FACTORY,
+          data: encodeFunctionData({ abi: factoryAbi, functionName: "deployProxy", args }),
+          gas: GAS.deploy,
+        },
+      };
     };
+    const registryTx = (tag: string) => proxyTx(tag, USER_REGISTRY_IMPL, userRegistryAbi);
+    const resolverTx = (tag: string) => proxyTx(tag, RESOLVER_IMPL, resolverAbi);
+    /// coinType 60 = SLIP-44 ETH, matching ENSignRegistry.
+    const setAddrTx = (resolver: Address, name: string, target: Address) => ({
+      to: resolver,
+      data: encodeFunctionData({
+        abi: resolverAbi, functionName: "setAddr", args: [namehash(name), 60n, target],
+      }),
+      gas: GAS.setAddr,
+    });
+    const registerTx = (
+      registry: Address, lbl: string, owner: Address, sub: Address, resolver: Address,
+    ) => ({
+      to: registry,
+      data: encodeFunctionData({
+        abi: registryAbi, functionName: "register",
+        args: [lbl, owner, sub, resolver, ALL_ROLES, expiry],
+      }),
+      gas: GAS.register,
+    });
+
+
 
     // Already provisioned? The user's name points at its namespace registry,
     // and `recovery` inside that points at the one holding guardians. Reading
@@ -240,39 +251,62 @@ export async function POST(req: Request) {
     let methodsRegistry: Address;
     let needsSetSubregistry = false;
 
-    if (namespaceRegistry === ZERO) {
-      namespaceRegistry = await deployRegistry("rec-namespace");
-      needsSetSubregistry = true; // only the account can re-point its own name
-    }
-    // Ask the namespace what `recovery` points at rather than assuming we are
-    // the ones who put it there — a previous run may have got this far and
-    // stopped before the client sent its userOp.
-    methodsRegistry = await read<Address>(namespaceRegistry, "getSubregistry", ["recovery"]);
-    if (methodsRegistry === ZERO) {
-      methodsRegistry = await deployRegistry("rec-methods");
-      const recoveryResolver = await deployResolver(recoveryName, account);
-      await send(
-        namespaceRegistry,
-        encodeFunctionData({
-          abi: registryAbi, functionName: "register",
-          args: ["recovery", account, methodsRegistry, recoveryResolver, ALL_ROLES, expiry],
-        }),
-      );
-    }
+    // One resolver serves the whole namespace: PermissionedResolver keys records
+    // by node, so `recovery` and every guardian can share it. ENSignRegistry
+    // deploys one per name; here that would be an extra block per guardian.
+    // Guard the read: on a first-time account the namespace does not exist yet,
+    // and calling into the zero address returns "0x" rather than an address.
+    let sharedResolver =
+      namespaceRegistry === ZERO
+        ? ZERO
+        : await read<Address>(namespaceRegistry, "getResolver", ["recovery"]);
 
-    // A namespace built before names carried resolvers is invisible to the
-    // indexer. Retrofit rather than leaving those accounts stranded.
-    if ((await read<Address>(namespaceRegistry, "getResolver", ["recovery"])) === ZERO) {
-      const retrofit = await deployResolver(recoveryName, account);
-      const recoveryTokenId = await read<bigint>(namespaceRegistry, "getTokenId", [
-        labelId("recovery"),
+    if (namespaceRegistry === ZERO) {
+      const [ns, methods, res] = await Promise.all([
+        registryTx("rec-namespace"), registryTx("rec-methods"), resolverTx("rec-resolver"),
       ]);
-      await send(
-        namespaceRegistry,
-        encodeFunctionData({
-          abi: registryAbi, functionName: "setResolver", args: [recoveryTokenId, retrofit],
-        }),
-      );
+      await sendMany([ns.tx, methods.tx, res.tx]);           // independent
+      namespaceRegistry = ns.address;
+      methodsRegistry = methods.address;
+      sharedResolver = res.address;
+      await sendMany([                                        // both need the above
+        registerTx(namespaceRegistry, "recovery", account, methodsRegistry, sharedResolver),
+        setAddrTx(sharedResolver, recoveryName, account),
+      ]);
+      needsSetSubregistry = true; // only the account can re-point its own name
+    } else {
+      methodsRegistry = await read<Address>(namespaceRegistry, "getSubregistry", ["recovery"]);
+      if (methodsRegistry === ZERO || sharedResolver === ZERO) {
+        // A namespace built before names carried resolvers is invisible to the
+        // indexer. Retrofit rather than leaving those accounts stranded.
+        const parts: Array<{ to: Address; data: Hex; gas: bigint }> = [];
+        if (sharedResolver === ZERO) {
+          const res = await resolverTx("rec-resolver");
+          await sendMany([res.tx]);
+          sharedResolver = res.address;
+          const recoveryTokenId = await read<bigint>(namespaceRegistry, "getTokenId", [
+            labelId("recovery"),
+          ]);
+          parts.push({
+            to: namespaceRegistry,
+            data: encodeFunctionData({
+              abi: registryAbi, functionName: "setResolver",
+              args: [recoveryTokenId, sharedResolver],
+            }),
+            gas: GAS.setResolver,
+          });
+          parts.push(setAddrTx(sharedResolver, recoveryName, account));
+        }
+        if (methodsRegistry === ZERO) {
+          const methods = await registryTx("rec-methods");
+          await sendMany([methods.tx]);
+          methodsRegistry = methods.address;
+          parts.push(
+            registerTx(namespaceRegistry, "recovery", account, methodsRegistry, sharedResolver),
+          );
+        }
+        if (parts.length) await sendMany(parts);
+      }
     }
 
     if (!withGuardian) {
@@ -282,6 +316,7 @@ export async function POST(req: Request) {
         userTokenId: userTokenId.toString(),
         needsSetSubregistry,
         storageRegistry: STORAGE_REGISTRY,
+        txs: sent,
         resource: null,
         guardianName: null,
         recoveryName,
@@ -290,28 +325,28 @@ export async function POST(req: Request) {
 
     // The guardian itself: mom.recovery.<label>.ensign.eth, owned by the
     // guardian's wallet so the manager's live `ownerOf` resolves to them.
-    const guardianTokenId = await read<bigint>(methodsRegistry, "getTokenId", [
-      labelId(guardianLabel as string),
+    // Register and record-write are independent — register only stores the
+    // resolver address, it does not call into it.
+    const guardianName = `${guardianLabel}.${recoveryName}`;
+    const taken = await read<Address>(methodsRegistry, "ownerOf", [
+      await read<bigint>(methodsRegistry, "getTokenId", [labelId(guardianLabel as string)]),
     ]);
-    const existing = await read<Address>(methodsRegistry, "ownerOf", [guardianTokenId]);
-    if (existing !== ZERO) {
+    if (taken !== ZERO) {
       return NextResponse.json(
-        { error: `guardian name "${guardianLabel}" is already taken for this account` },
+        { error: `"${guardianLabel}" is already a guardian on this account` },
         { status: 409 },
       );
     }
-    const guardianName = `${guardianLabel}.${recoveryName}`;
-    const guardianResolver = await deployResolver(guardianName, guardianAddress as Address);
-    await send(
-      methodsRegistry,
-      encodeFunctionData({
-        abi: registryAbi, functionName: "register",
-        args: [guardianLabel as string, guardianAddress as Address,
-               ZERO, guardianResolver, ALL_ROLES, expiry],
-      }),
-    );
-    const mintedId = await read<bigint>(methodsRegistry, "getTokenId", [labelId(guardianLabel as string)]);
-    const resource = await read<bigint>(methodsRegistry, "getResource", [mintedId]);
+    await sendMany([
+      registerTx(methodsRegistry, guardianLabel as string, guardianAddress as Address,
+                 ZERO, sharedResolver),
+      setAddrTx(sharedResolver, guardianName, guardianAddress as Address),
+    ]);
+
+    // Resource = labelhash with the low 32 bits (the version) cleared. Reading
+    // it back would mean waiting for the register to mine; this is the same
+    // value the registry constructs for a freshly registered name.
+    const resource = BigInt(keccak256(toHex(guardianLabel as string))) & ~((1n << 32n) - 1n);
 
     return NextResponse.json({
       namespaceRegistry,
@@ -320,6 +355,7 @@ export async function POST(req: Request) {
       userTokenId: userTokenId.toString(),
       needsSetSubregistry,
       storageRegistry: STORAGE_REGISTRY,
+      txs: sent,
       guardianName,
       recoveryName,
     });
