@@ -1,0 +1,663 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  createWalletClient,
+  custom,
+  encodeAbiParameters,
+  keccak256,
+  parseAbi,
+  type Address,
+  type Hex,
+} from "viem";
+import "../app/system.css";
+import { connectInjected, connectWalletConnect, type Connection } from "@/lib/guardianWallet";
+import {
+  CHAIN,
+  CHAIN_ID,
+  PARENT_NAME,
+  createPasskeyForLabel,
+  publicClient,
+  resolveLabel,
+} from "@/lib/ensign";
+
+/**
+ * PUBLIC recovery — deliberately not behind a session.
+ *
+ * The person recovering has lost the passkey, so they cannot sign in; and a
+ * guardian was never an account holder here at all. Gating this page behind
+ * auth made it unreachable by exactly the two people who need it. Everything
+ * that matters is verified on-chain anyway: proofs carry their own
+ * authorisation, so a public page grants no power.
+ *
+ *   /recover?name=leo.ensign.eth   or   /recover?account=0x…
+ */
+
+const MANAGER = (process.env.NEXT_PUBLIC_RECOVERY_MANAGER ??
+  "0xD952928319e72c3F96eBD3e6398a8421f0865846") as Address;
+const ECDSA_PROVIDER = (process.env.NEXT_PUBLIC_ECDSA_PROVIDER ??
+  "0x97F9EFfAF5399a637b98359cda3cBf7493a0Ebf5") as Address;
+const ZKEMAIL_PROVIDER = (process.env.NEXT_PUBLIC_ZKEMAIL_PROVIDER ??
+  "0x8AD2E487a82fb14C689a5D85f6FE53EF7B427E90") as Address;
+
+const managerAbi = parseAbi([
+  "function getRecoveries(address account) view returns ((address provider, bytes commitment, uint32 delay)[])",
+  "function recoveryThreshold(address account) view returns (uint256)",
+  "function recoveryNonce(address account) view returns (uint256)",
+  "function requestRecovery(address account, bytes subject, (bytes32 recoveryId, bytes proof)[] approvals) returns (bytes32)",
+  "function executeRecoveryRequest(bytes32 requestId)",
+  "function recoveryRequest(bytes32 requestId) view returns ((address account, uint64 executeAt, bytes subject))",
+]);
+
+const zkProviderAbi = parseAbi([
+  "function expectedCommand(address account, uint256 nonce, bytes subject) pure returns (string)",
+]);
+
+type Recovery = { provider: Address; commitment: Hex; delay: number };
+
+type EmailProofJson = {
+  domainName: string;
+  publicKeyHash: Hex;
+  timestamp: number | string;
+  maskedCommand: string;
+  emailNullifier: Hex;
+  accountSalt: Hex;
+  isCodeExist: boolean;
+  proof: Hex;
+};
+
+/// Encode exactly as ZkEmailRecoveryProvider.verify decodes it.
+function encodeEmailProof(p: EmailProofJson): Hex {
+  return encodeAbiParameters(
+    [{
+      type: "tuple",
+      components: [
+        { name: "domainName", type: "string" },
+        { name: "publicKeyHash", type: "bytes32" },
+        { name: "timestamp", type: "uint256" },
+        { name: "maskedCommand", type: "string" },
+        { name: "emailNullifier", type: "bytes32" },
+        { name: "accountSalt", type: "bytes32" },
+        { name: "isCodeExist", type: "bool" },
+        { name: "proof", type: "bytes" },
+      ],
+    }],
+    [{
+      domainName: p.domainName,
+      publicKeyHash: p.publicKeyHash,
+      timestamp: BigInt(p.timestamp),
+      maskedCommand: p.maskedCommand,
+      emailNullifier: p.emailNullifier,
+      accountSalt: p.accountSalt,
+      isCodeExist: p.isCodeExist,
+      proof: p.proof,
+    }],
+  );
+}
+type Sig = { recoveryId: Hex; proof: Hex; signer: string };
+
+function short(a: string) {
+  return a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a;
+}
+
+function MailIcon() {
+  return (
+    <svg className="ds-ic-svg" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <rect x="2" y="4" width="16" height="12" rx="2.4" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M2.8 5.6 10 11l7.2-5.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function WalletIcon() {
+  return (
+    <svg className="ds-ic-svg" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <rect x="2" y="4.5" width="16" height="12" rx="2.6" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M2 8.2h16" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="14.3" cy="12.4" r="1.15" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** Approvals collected against the threshold. */
+function Wheel({ have, need }: { have: number; need: number }) {
+  const r = 26;
+  const c = 2 * Math.PI * r;
+  const pct = need === 0 ? 0 : Math.min(1, have / need);
+  const done = have >= need && need > 0;
+  return (
+    <div className="ds-wheel-wrap">
+      <svg className="ds-wheel-svg" viewBox="0 0 62 62">
+        <circle className="ds-wheel-track" cx="31" cy="31" r={r} fill="none" strokeWidth="5" />
+        <circle
+          className={`ds-wheel-fill ${done ? "ds-wheel-fill--done" : ""}`}
+          cx="31" cy="31" r={r} fill="none" strokeWidth="5"
+          strokeDasharray={c} strokeDashoffset={c * (1 - pct)}
+        />
+      </svg>
+      <span className="ds-wheel-num">{have}/{need || "—"}</span>
+    </div>
+  );
+}
+
+export default function RecoverContent() {
+  const params = useSearchParams();
+  const nameParam = params.get("name");
+  const accountParam = params.get("account") as Address | null;
+
+  const [target, setTarget] = useState<Address | null>(accountParam);
+  const [displayName, setDisplayName] = useState<string>(nameParam ?? "");
+  const [lookup, setLookup] = useState(nameParam ?? "");
+  const [recoveries, setRecoveries] = useState<Recovery[]>([]);
+  const [threshold, setThreshold] = useState(0);
+  const [nonce, setNonce] = useState<bigint>(0n);
+
+  const [newKey, setNewKey] = useState<{ qx: Hex; qy: Hex } | null>(null);
+  const [sigs, setSigs] = useState<Sig[]>([]);
+  const [conn, setConn] = useState<Connection | null>(null);
+  const [requestId, setRequestId] = useState<Hex | null>(null);
+  const [executeAt, setExecuteAt] = useState(0);
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [accountCode, setAccountCode] = useState("");
+  const [emailCommand, setEmailCommand] = useState<string | null>(null);
+  const [tab, setTab] = useState<"wallet" | "email">("wallet");
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const load = useCallback(async (acct: Address) => {
+    try {
+      const [list, th, nc] = await Promise.all([
+        publicClient.readContract({
+          address: MANAGER, abi: managerAbi, functionName: "getRecoveries", args: [acct],
+        }) as Promise<readonly Recovery[]>,
+        publicClient.readContract({
+          address: MANAGER, abi: managerAbi, functionName: "recoveryThreshold", args: [acct],
+        }) as Promise<bigint>,
+        publicClient.readContract({
+          address: MANAGER, abi: managerAbi, functionName: "recoveryNonce", args: [acct],
+        }) as Promise<bigint>,
+      ]);
+      setRecoveries([...list]);
+      setThreshold(Number(th));
+      setNonce(nc);
+      setErr(list.length === 0 ? "This account has no guardians — recovery isn't possible." : null);
+    } catch (e) {
+      setErr(`could not read recovery config: ${(e as Error).message}`);
+    }
+  }, []);
+
+  // Resolve whatever the link carried.
+  useEffect(() => {
+    (async () => {
+      if (accountParam) { setTarget(accountParam); void load(accountParam); return; }
+      if (!nameParam) return;
+      try {
+        const label = nameParam.replace(`.${PARENT_NAME}`, "");
+        const r = await resolveLabel(label);
+        setTarget(r.account);
+        setDisplayName(`${label}.${PARENT_NAME}`);
+        void load(r.account);
+      } catch {
+        setErr(`could not resolve ${nameParam}`);
+      }
+    })();
+  }, [nameParam, accountParam, load]);
+
+  async function findAccount() {
+    setBusy("lookup"); setErr(null);
+    try {
+      const label = lookup.trim().replace(`.${PARENT_NAME}`, "");
+      const r = await resolveLabel(label);
+      setTarget(r.account);
+      setDisplayName(`${label}.${PARENT_NAME}`);
+      await load(r.account);
+    } catch {
+      setErr(`no account found for ${lookup}`);
+    } finally { setBusy(null); }
+  }
+
+  async function connect(kind: "injected" | "walletconnect") {
+    setBusy(kind); setErr(null);
+    try {
+      const c = kind === "injected"
+        ? await connectInjected()
+        : await connectWalletConnect(CHAIN_ID);
+      setConn(c);
+      setNote(`connected ${short(c.address)} via ${c.via === "injected" ? "browser wallet" : "WalletConnect"}`);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally { setBusy(null); }
+  }
+
+  /** Created on the recovering person's device, at the point it's needed. */
+  async function makeKey() {
+    setBusy("passkey"); setErr(null);
+    try {
+      const { qx, qy } = await createPasskeyForLabel(displayName || "recovered");
+      setNewKey({ qx, qy });
+      setNote("new passkey created on this device");
+    } catch (e) {
+      setErr(`passkey failed: ${(e as Error).message}`);
+    } finally { setBusy(null); }
+  }
+
+  async function signAsGuardian() {
+    if (!newKey || !target) return;
+    setBusy("sign"); setErr(null);
+    try {
+      const c = conn ?? await connectInjected();
+      if (!conn) setConn(c);
+      const addr = c.address;
+      const client = createWalletClient({ chain: CHAIN, transport: custom(c.provider) });
+
+      const subject = encodeAbiParameters(
+        [{ type: "bytes32" }, { type: "bytes32" }], [newKey.qx, newKey.qy],
+      );
+      const mine = recoveries.find(
+        (r) => r.provider.toLowerCase() === ECDSA_PROVIDER.toLowerCase() &&
+          ("0x" + r.commitment.slice(26)).toLowerCase() === addr.toLowerCase(),
+      );
+      if (!mine) throw new Error(`${short(addr)} is not a guardian of this account`);
+
+      const proof = await client.signTypedData({
+        account: addr,
+        domain: {
+          name: "ECDSARecoveryProvider", version: "1",
+          chainId: CHAIN_ID, verifyingContract: ECDSA_PROVIDER,
+        },
+        types: {
+          Recover: [
+            { name: "account", type: "address" },
+            { name: "nonce", type: "uint256" },
+            { name: "subject", type: "bytes" },
+          ],
+        },
+        primaryType: "Recover",
+        message: { account: target, nonce, subject },
+      });
+
+      const recoveryId = keccak256(
+        encodeAbiParameters(
+          [{ type: "address" }, { type: "address" }, { type: "bytes" }],
+          [target, mine.provider, mine.commitment],
+        ),
+      );
+      setSigs((prev) =>
+        prev.some((s) => s.recoveryId === recoveryId)
+          ? prev
+          : [...prev, { recoveryId, proof, signer: addr }]);
+      setNote(`approval collected from ${short(addr)}`);
+    } catch (e) {
+      setErr(`signing failed: ${(e as Error).message}`);
+    } finally { setBusy(null); }
+  }
+
+  /// The exact line the guardian's email body has to carry.
+  async function showCommand() {
+    if (!newKey || !target) return;
+    setBusy("command"); setErr(null);
+    try {
+      const subject = encodeAbiParameters(
+        [{ type: "bytes32" }, { type: "bytes32" }], [newKey.qx, newKey.qy],
+      );
+      const cmd = await publicClient.readContract({
+        address: ZKEMAIL_PROVIDER, abi: zkProviderAbi,
+        functionName: "expectedCommand", args: [target, nonce, subject],
+      }) as string;
+      setEmailCommand(cmd);
+    } catch (e) {
+      setErr(`could not read command: ${(e as Error).message}`);
+    } finally { setBusy(null); }
+  }
+
+  /// Prove a saved .eml through our own prover, then attach it as an approval.
+  async function proveEml(file: File) {
+    if (!target) return;
+    if (!accountCode) { setErr("paste the account code saved when this guardian was added"); return; }
+    const guardian = recoveries.find(
+      (r) => r.provider.toLowerCase() === ZKEMAIL_PROVIDER.toLowerCase(),
+    );
+    if (!guardian) { setErr("no email guardian on this account"); return; }
+
+    setBusy("prove"); setErr(null);
+    setNote("deriving circuit inputs and proving — this takes a few minutes…");
+    try {
+      const eml = await file.text();
+      const res = await fetch("/api/zkemail-prove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eml, accountCode }),
+      });
+      const json = (await res.json()) as { proof?: EmailProofJson; error?: string };
+      if (!res.ok || !json.proof) throw new Error(json.error ?? `HTTP ${res.status}`);
+
+      const recoveryId = keccak256(
+        encodeAbiParameters(
+          [{ type: "address" }, { type: "address" }, { type: "bytes" }],
+          [target, guardian.provider, guardian.commitment],
+        ),
+      );
+      setSigs((prev) =>
+        prev.some((x) => x.recoveryId === recoveryId)
+          ? prev
+          : [...prev, {
+              recoveryId,
+              proof: encodeEmailProof(json.proof!),
+              signer: `email @${json.proof!.domainName}`,
+            }]);
+      setNote(`email approval attached — "${json.proof.maskedCommand}"`);
+    } catch (e) {
+      setErr(`proving failed: ${(e as Error).message}`);
+      setNote(null);
+    } finally { setBusy(null); }
+  }
+
+  async function submit() {
+    if (!newKey || !target) return;
+    setBusy("submit"); setErr(null);
+    try {
+      const c = conn ?? await connectInjected();
+      if (!conn) setConn(c);
+      const addr = c.address;
+      const client = createWalletClient({ chain: CHAIN, transport: custom(c.provider) });
+      const subject = encodeAbiParameters(
+        [{ type: "bytes32" }, { type: "bytes32" }], [newKey.qx, newKey.qy],
+      );
+      const hash = await client.writeContract({
+        account: addr, address: MANAGER, abi: managerAbi,
+        functionName: "requestRecovery",
+        args: [target, subject, sigs.map((s) => ({ recoveryId: s.recoveryId, proof: s.proof }))],
+      });
+      await publicClient.waitForTransactionReceipt({ hash });
+
+      const id = keccak256(
+        encodeAbiParameters(
+          [{ type: "address" }, { type: "bytes" }, { type: "uint256" }],
+          [target, subject, nonce],
+        ),
+      );
+      const req = await publicClient.readContract({
+        address: MANAGER, abi: managerAbi, functionName: "recoveryRequest", args: [id],
+      }) as { account: Address; executeAt: bigint; subject: Hex };
+      setRequestId(id);
+      setExecuteAt(Number(req.executeAt));
+      setNote("request queued");
+    } catch (e) {
+      setErr(`request failed: ${(e as Error).message}`);
+    } finally { setBusy(null); }
+  }
+
+  async function execute() {
+    if (!requestId) return;
+    setBusy("execute"); setErr(null);
+    try {
+      const c = conn ?? await connectInjected();
+      if (!conn) setConn(c);
+      const addr = c.address;
+      const client = createWalletClient({ chain: CHAIN, transport: custom(c.provider) });
+      const hash = await client.writeContract({
+        account: addr, address: MANAGER, abi: managerAbi,
+        functionName: "executeRecoveryRequest", args: [requestId],
+      });
+      await publicClient.waitForTransactionReceipt({ hash });
+      setNote("recovered — the new passkey now controls this account");
+      setRequestId(null);
+    } catch (e) {
+      setErr(`execute failed: ${(e as Error).message}`);
+    } finally { setBusy(null); }
+  }
+
+  const ready = executeAt > 0 && now >= executeAt;
+  const emailGuardians = recoveries.filter(
+    (r) => r.provider.toLowerCase() === ZKEMAIL_PROVIDER.toLowerCase(),
+  );
+  const enough = threshold > 0 && sigs.length >= threshold;
+
+  return (
+    <div className="ds ds-page">
+      <nav className="ds-nav">
+        <div className="ds-nav-in">
+          <a href="/" className="ds-brand" style={{ textDecoration: "none" }}>
+            ENSign <span>ENS v2</span>
+          </a>
+          <div className="ds-nav-right">
+            <span className="ds-navlink">Account recovery</span>
+          </div>
+        </div>
+      </nav>
+
+      <main className="ds-wrap ds-app">
+        <div className="ds-rec-head">
+          <h1>Recover an account</h1>
+          {target ? (
+            <span className="ds-rec-target">
+              <WalletIcon /> {displayName || short(target)}
+            </span>
+          ) : (
+            <p className="ds-lede" style={{ margin: "0 auto" }}>
+              Anyone can run this — the account holder doesn&apos;t need to be here.
+            </p>
+          )}
+        </div>
+
+        {err && <div className="agents-err">{err}</div>}
+        {note && <div className="agents-note">{note}</div>}
+
+        {!target ? (
+          <div className="ds-off" style={{ paddingTop: 32 }}>
+            <div className="ds-pane-h" style={{ justifyContent: "center" }}>
+              <h3>Which account?</h3>
+            </div>
+            <div className="ag-row" style={{ justifyContent: "center" }}>
+              <input
+                className="ag-input ag-input--inline"
+                placeholder={`name.${PARENT_NAME}`}
+                value={lookup}
+                onChange={(e) => setLookup(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") void findAccount(); }}
+              />
+              <button className="ds-btn" disabled={!!busy || !lookup.trim()} onClick={findAccount}>
+                {busy === "lookup" ? "…" : "Find"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="ds-split2" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <section className="ds-pane">
+              <div className="ds-wheel">
+                <Wheel have={sigs.length} need={threshold} />
+                <div>
+                  <p className="ds-wheel-t">
+                    {enough ? "Enough approvals" : "Collecting approvals"}
+                  </p>
+                  <p className="ds-wheel-s">
+                    {threshold === 0
+                      ? "No guardians on this account."
+                      : `${threshold} of ${recoveries.length} guardians must approve.`}
+                  </p>
+                </div>
+              </div>
+
+              {sigs.length > 0 && (
+                <div className="ds-glist" style={{ marginTop: 18 }}>
+                  {sigs.map((s) => (
+                    <div className="ds-grow" key={s.recoveryId}>
+                      <span className="ds-grow-ic" aria-hidden>
+                        {s.signer.startsWith("email") ? <MailIcon /> : <WalletIcon />}
+                      </span>
+                      <span className="ds-grow-b">
+                        <div className="ds-grow-t">
+                          {s.signer.startsWith("email") ? s.signer : short(s.signer)}
+                        </div>
+                        <div className="ds-grow-s">approval collected</div>
+                      </span>
+                      <span style={{ color: "var(--data)", fontSize: 14 }}>✓</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="ds-flow">
+              <div className="ds-step">
+                <div className="ds-step-h">
+                  <span className="ds-step-n">1</span>
+                  <h4>Create your new passkey</h4>
+                  {newKey && <span className="ds-step-done">✓ ready</span>}
+                </div>
+                <p className="ag-hint">
+                  Made on this device, right now — this is the key guardians will authorise.
+                </p>
+                <button className="ds-btn" style={{ marginTop: 12 }} disabled={!!busy} onClick={makeKey}>
+                  {busy === "passkey" ? "…" : newKey ? "Create another" : "Create passkey"}
+                </button>
+              </div>
+
+              <div className={`ds-step ${newKey ? "" : "ds-step--muted"}`}>
+                <div className="ds-step-h">
+                  <span className="ds-step-n">2</span>
+                  <h4>A guardian approves</h4>
+                </div>
+
+                {/* whichever kind of guardian is standing here */}
+                <div className="ds-tabs" style={{ marginBottom: 16 }}>
+                  <button
+                    className={`ds-tab-btn ${tab === "wallet" ? "ds-tab-btn--on" : ""}`}
+                    onClick={() => setTab("wallet")}
+                  >
+                    Wallet
+                  </button>
+                  <button
+                    className={`ds-tab-btn ${tab === "email" ? "ds-tab-btn--on" : ""}`}
+                    onClick={() => setTab("email")}
+                  >
+                    Email
+                  </button>
+                </div>
+
+                {tab === "wallet" && (
+                  <>
+                    {conn ? (
+                      <div className="ds-connect">
+                        <span className="ds-connect-ic"><WalletIcon /></span>
+                        <span className="ds-connect-b">
+                          <div className="ds-connect-t">
+                            Connected via {conn.via === "injected" ? "browser wallet" : "WalletConnect"}
+                          </div>
+                          <div className="ds-connect-s">{conn.address}</div>
+                        </span>
+                        <button className="ds-grow-x" title="Disconnect" onClick={() => setConn(null)}>
+                          ×
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="ds-connect-choices">
+                        <button className="ghost" disabled={!!busy} onClick={() => connect("injected")}>
+                          {busy === "injected" ? "…" : "Browser wallet"}
+                        </button>
+                        <button className="ghost" disabled={!!busy} onClick={() => connect("walletconnect")}>
+                          {busy === "walletconnect" ? "…" : "WalletConnect"}
+                        </button>
+                      </div>
+                    )}
+                    <button
+                      className="ds-btn" style={{ marginTop: 12 }}
+                      disabled={!!busy || !newKey}
+                      onClick={signAsGuardian}
+                    >
+                      {busy === "sign" ? "…" : "Sign as guardian"}
+                    </button>
+                    <p className="ag-hint" style={{ marginTop: 10 }}>
+                      Signing is free — no gas, no ETH needed. WalletConnect lets a guardian
+                      approve from a phone by scanning a QR.
+                    </p>
+                  </>
+                )}
+
+                {tab === "email" && (
+                  <>
+                    {emailGuardians.length === 0 ? (
+                      <p className="ag-hint">This account has no email guardians.</p>
+                    ) : (
+                      <>
+                        <button className="ghost" disabled={!!busy || !newKey} onClick={showCommand}>
+                          {busy === "command" ? "…" : "Show the line to email"}
+                        </button>
+                        {emailCommand && (
+                          <div className="ds-codebox" style={{ marginTop: 12 }}>
+                            <code>{emailCommand}</code>
+                            <button
+                              className="ds-copy"
+                              onClick={() => navigator.clipboard?.writeText(emailCommand)}
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        )}
+                        <p className="ag-hint" style={{ marginTop: 12 }}>
+                          The guardian emails that line to themselves, then saves the message
+                          (Gmail → ⋮ → Show original → Download original) and drops it here.
+                        </p>
+                        <input
+                          className="ag-input" style={{ marginTop: 12 }}
+                          placeholder="account code saved when this guardian was added"
+                          value={accountCode}
+                          onChange={(e) => setAccountCode(e.target.value.trim())}
+                        />
+                        <input
+                          type="file" accept=".eml,message/rfc822"
+                          className="ag-input" style={{ marginTop: 10 }}
+                          disabled={!!busy || !newKey || !accountCode}
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) void proveEml(f); }}
+                        />
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className={`ds-step ${enough ? "" : "ds-step--muted"}`}>
+                <div className="ds-step-h">
+                  <span className="ds-step-n">3</span>
+                  <h4>Submit and execute</h4>
+                  {requestId && (
+                    <span className="ds-step-done">
+                      {ready ? "ready" : `${Math.max(0, executeAt - now)}s`}
+                    </span>
+                  )}
+                </div>
+                <div className="ag-row">
+                  <button className="ds-btn" disabled={!!busy || !enough || !!requestId} onClick={submit}>
+                    {busy === "submit" ? "…" : "Submit request"}
+                  </button>
+                  {requestId && (
+                    <button className="ds-btn" disabled={!!busy || !ready} onClick={execute}>
+                      {busy === "execute" ? "…" : "Execute"}
+                    </button>
+                  )}
+                </div>
+                <p className="ag-hint" style={{ marginTop: 10 }}>
+                  The account owner can cancel during the timelock from any signed-in device.
+                </p>
+              </div>
+            </section>
+          </div>
+        )}
+      </main>
+
+      <footer className="ds-footer">
+        <div className="ds-footer-in">
+          <span className="ds-footer-who"><i /> Public recovery · no sign-in required</span>
+          <span className="ds-footer-links"><a href="/">ENSign</a></span>
+        </div>
+      </footer>
+    </div>
+  );
+}
