@@ -250,7 +250,7 @@ export default function AppContent() {
       <section className="ds-wrap ds-hero">
         <div className="ds-mound" aria-hidden />
 
-        <div className="ds-hero-copy ds-hero-copy--solo">
+        <div className="ds-hero-copy">
         <h1 className="ds-h1 ds-rise" style={rise(40)}>
           Your name<br />is the <em>wallet</em>.
         </h1>
@@ -282,6 +282,60 @@ export default function AppContent() {
         )}
         </div>
 
+
+        {/* the product's most telling screen: "From" is a name, gas is sponsored */}
+        <div className="ds-signer ds-rise" style={rise(300)}>
+          <div className="ds-signer-bar">
+            <span className="ds-signer-mark">◈</span>
+            <span className="ds-signer-brand">ENSign</span>
+            <span className="ds-signer-net"><i />Sepolia</span>
+          </div>
+
+          <div className="ds-signer-body">
+            <p className="ds-signer-eyebrow">Confirm transaction</p>
+
+            <div className="ds-signer-card">
+              <div className="ds-signer-row">
+                <span>From</span><b>{previewName}</b>
+              </div>
+              <div className="ds-signer-row">
+                <span>To</span><b>usdc.eth</b>
+              </div>
+              <div className="ds-signer-row">
+                <span>Signer</span><b>passkey · Face ID</b>
+              </div>
+              <div className="ds-signer-row">
+                <span>Gas</span><span className="ds-sponsored">sponsored</span>
+              </div>
+            </div>
+
+            <div className="ds-signer-card">
+              <div className="ds-signer-call">
+                <span className="ds-signer-ic">{"</>"}</span>
+                <span>
+                  <div className="ds-signer-fn">transfer</div>
+                  <div className="ds-signer-sig">transfer(address,uint256)</div>
+                </span>
+              </div>
+              <div className="ds-signer-arg">
+                <div className="ds-signer-arg-k"><span>recipient</span><span>address</span></div>
+                <div className="ds-signer-arg-v">alice.ensign.eth</div>
+              </div>
+              <div className="ds-signer-arg">
+                <div className="ds-signer-arg-k"><span>amount</span><span>uint256</span></div>
+                <div className="ds-signer-arg-v">25.00 USDC</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="ds-signer-foot">
+            <button className="ds-signer-reject" type="button" tabIndex={-1}>Reject</button>
+            <button className="ds-signer-approve" type="button" tabIndex={-1}>
+              Approve <span aria-hidden>→</span>
+            </button>
+          </div>
+          <div className="ds-signer-secured">Secured by <b>ENSign</b></div>
+        </div>
       </section>
 
       {/* ── the inversion ── */}

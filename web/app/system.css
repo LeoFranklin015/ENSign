@@ -183,7 +183,7 @@
 /* Two columns: narrative left, the single action right. Stacking these in one
    centred column left ~700px dead on each side and doubled the page height. */
 .ds-hero {
-  padding: 72px 0 56px;
+  padding: 48px 0 40px;
   display: grid;
   grid-template-columns: 1.02fr 0.98fr;
   gap: 60px;
@@ -191,9 +191,6 @@
 }
 /* With no companion visual the hero is a single centred statement — short,
    because the claim form now lives in a modal. */
-.ds-hero:has(.ds-hero-copy--solo) { display: block; text-align: center; }
-.ds-hero-copy--solo .ds-lede { margin-left: auto; margin-right: auto; text-align: center; }
-.ds-hero-copy--solo .ds-hero-cta { justify-content: center; }
 .ds-hero-copy { text-align: left; }
 .ds-hero .ds-lede { margin: 18px 0 0; max-width: 44ch; }
 .ds-hero-cta { display: flex; gap: 11px; margin-top: 26px; }
@@ -523,3 +520,98 @@
 .ds-tree--lg .ds-node--child::before { left: -16px; top: -9px; }
 .ds-tree--lg .ds-node--child::after { left: -16px; width: 13px; }
 .ds-tree--lg .ds-node-tag { font-size: 10.5px; padding: 4px 10px; }
+
+/* ── signer preview ────────────────────────────────────────────────────────
+   A faithful still of the real ENSign confirm sheet, used as the hero visual.
+   It shows the thesis better than any diagram: the "From" row is a NAME, and
+   gas reads sponsored.                                                      */
+
+.ds-signer {
+  background: #FCFCFA;
+  border-radius: 20px;
+  border: 1px solid var(--rule-soft);
+  overflow: hidden;
+  box-shadow: 0 40px 80px -40px rgba(14, 33, 22, .42), 0 6px 18px -12px rgba(14, 33, 22, .18);
+}
+.ds-signer-bar {
+  display: flex; align-items: center; gap: 11px;
+  padding: 14px 16px; background: #fff;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.ds-signer-mark {
+  width: 28px; height: 28px; border-radius: 9px;
+  background: var(--forest); color: var(--lime);
+  display: grid; place-items: center; font-size: 13px; flex: none;
+}
+.ds-signer-brand {
+  font-family: var(--font-display); font-size: 18px; color: var(--forest);
+}
+.ds-signer-net {
+  margin-left: auto; display: flex; align-items: center; gap: 7px;
+  font-size: 12.5px; color: var(--on-paper-soft);
+  border: 1px solid var(--rule); border-radius: var(--r-pill);
+  padding: 6px 13px;
+}
+.ds-signer-net i {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--data); flex: none;
+}
+.ds-signer-body { padding: 16px; }
+.ds-signer-eyebrow {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--on-paper-faint); margin: 0 0 12px;
+}
+.ds-signer-card {
+  background: #fff; border: 1px solid var(--rule-soft);
+  border-radius: 14px; padding: 4px 15px; margin-bottom: 12px;
+}
+.ds-signer-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 13px 0; border-bottom: 1px solid var(--rule-soft);
+  font-size: 13.5px; color: var(--on-paper-soft);
+}
+.ds-signer-row:last-child { border-bottom: 0; }
+.ds-signer-row b {
+  font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--on-paper);
+}
+.ds-signer-row .ds-sponsored { color: var(--data); font-weight: 600; font-family: var(--font-body); }
+
+.ds-signer-call { display: flex; align-items: center; gap: 12px; padding: 13px 0 12px; }
+.ds-signer-ic {
+  width: 34px; height: 34px; border-radius: 10px; flex: none;
+  background: var(--card-2); border: 1px solid var(--rule-soft);
+  display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 12px; color: var(--on-paper-soft);
+}
+.ds-signer-fn { font-family: var(--font-mono); font-size: 14.5px; color: var(--on-paper); }
+.ds-signer-sig { font-family: var(--font-mono); font-size: 11.5px; color: var(--on-paper-faint); margin-top: 2px; }
+
+.ds-signer-arg { padding: 11px 0; border-top: 1px solid var(--rule-soft); }
+.ds-signer-arg-k {
+  display: flex; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 11px; color: var(--on-paper-faint);
+}
+.ds-signer-arg-v {
+  font-family: var(--font-mono); font-size: 12.5px; color: var(--on-paper); margin-top: 4px;
+}
+
+.ds-signer-foot {
+  display: grid; grid-template-columns: 1fr 1.5fr; gap: 11px;
+  padding: 14px 16px; border-top: 1px solid var(--rule-soft); background: #fff;
+}
+.ds-signer-reject {
+  border: 1px solid var(--rule); background: #fff; border-radius: var(--r-pill);
+  padding: 13px; font: 500 14px/1 var(--font-body); color: var(--on-paper);
+}
+.ds-signer-approve {
+  border: 0; border-radius: var(--r-pill);
+  background: linear-gradient(180deg, var(--lime) 0%, var(--lime-deep) 100%);
+  color: var(--lime-ink); padding: 13px;
+  font: 500 14px/1 var(--font-body);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.5) inset;
+}
+.ds-signer-secured {
+  text-align: center; padding: 10px 0 14px; background: #fff;
+  font-size: 11.5px; color: var(--on-paper-faint);
+}
+.ds-signer-secured b { color: var(--forest); font-weight: 500; }
