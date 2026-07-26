@@ -2,6 +2,7 @@ import {
   createPublicClient,
   createWalletClient,
   encodeAbiParameters,
+  fallback,
   http,
   parseAbi,
   type Address,
@@ -20,15 +21,37 @@ const PK = req("PRIVATE_KEY") as Hex;
 export const REGISTRY = req("NEXT_PUBLIC_REGISTRY") as Address;
 export const ENTRYPOINT = req("NEXT_PUBLIC_ENTRYPOINT") as Address;
 
-const SEPOLIA_RPC = process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
-const BASE_SEPOLIA_RPC = process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org";
+/**
+ * RPC has been the single most common cause of production failure on this
+ * project: a rate-limited public endpoint, then an Alchemy key that ran out of
+ * monthly credits. One provider dying should degrade us, not stop us — so the
+ * configured endpoint is tried first and public ones back it up.
+ */
+const SEPOLIA_FALLBACKS = [
+  "https://ethereum-sepolia-rpc.publicnode.com",
+  "https://sepolia.drpc.org",
+];
+const BASE_SEPOLIA_FALLBACKS = ["https://sepolia.base.org"];
+
+function transportFor(primary: string | undefined, backups: string[]) {
+  const urls = [primary, ...backups].filter(Boolean) as string[];
+  // `rank: false` keeps the declared order, so a paid endpoint stays primary
+  // and the public ones are only reached when it errors.
+  return fallback(
+    urls.map((u) => http(u, { timeout: 15_000, retryCount: 2 })),
+    { rank: false, retryCount: 1 },
+  );
+}
+
+const sepoliaTransport = transportFor(process.env.SEPOLIA_RPC_URL, SEPOLIA_FALLBACKS);
+const baseTransport = transportFor(process.env.BASE_SEPOLIA_RPC_URL, BASE_SEPOLIA_FALLBACKS);
 
 export const account = privateKeyToAccount(PK);
 
-const sepoliaPub = createPublicClient({ chain: sepolia, transport: http(SEPOLIA_RPC) });
-const sepoliaWallet = createWalletClient({ account, chain: sepolia, transport: http(SEPOLIA_RPC) });
-const basePub = createPublicClient({ chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC) });
-const baseWallet = createWalletClient({ account, chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC) });
+const sepoliaPub = createPublicClient({ chain: sepolia, transport: sepoliaTransport });
+const sepoliaWallet = createWalletClient({ account, chain: sepolia, transport: sepoliaTransport });
+const basePub = createPublicClient({ chain: baseSepolia, transport: baseTransport });
+const baseWallet = createWalletClient({ account, chain: baseSepolia, transport: baseTransport });
 
 export function clientsForChain(chainId: number | string | undefined) {
   if (Number(chainId) === 84532) {

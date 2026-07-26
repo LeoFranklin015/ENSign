@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
   createPublicClient,
   createWalletClient,
+  fallback,
   http,
   parseAbi,
   type Address,
@@ -54,8 +55,18 @@ export async function POST(req: Request) {
       requestId?: Hex;
     };
 
-    const rpc = process.env.SEPOLIA_RPC_URL ?? "https://ethereum-sepolia-rpc.publicnode.com";
-    const transport = http(rpc);
+    // Same reasoning as lib/serverClients: never let one exhausted provider
+    // take recovery offline.
+    const transport = fallback(
+      [
+        process.env.SEPOLIA_RPC_URL,
+        "https://ethereum-sepolia-rpc.publicnode.com",
+        "https://sepolia.drpc.org",
+      ]
+        .filter(Boolean)
+        .map((u) => http(u as string, { timeout: 15_000, retryCount: 2 })),
+      { rank: false, retryCount: 1 },
+    );
     const relayer = privateKeyToAccount(PK);
     const pub = createPublicClient({ chain: sepolia, transport });
     const wallet = createWalletClient({ account: relayer, chain: sepolia, transport });
