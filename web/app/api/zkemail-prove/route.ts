@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
+
 import { encodeAbiParameters, type Hex } from "viem";
 import { relayerUtils } from "@/lib/relayerUtils";
+
+// These broadcast transactions and wait on receipts, which outlives the
+// default serverless limit. Hosts that honour this (Vercel) will allow it;
+// others ignore it harmlessly.
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 /**
  * Turn a raw .eml into an EmailProof, server-side.

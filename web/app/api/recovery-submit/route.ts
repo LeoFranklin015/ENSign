@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 import {
   createPublicClient,
   createWalletClient,
@@ -9,6 +10,12 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
+
+// These broadcast transactions and wait on receipts, which outlives the
+// default serverless limit. Hosts that honour this (Vercel) will allow it;
+// others ignore it harmlessly.
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 /**
  * Broadcast a recovery on the platform's behalf.
