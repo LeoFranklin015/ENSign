@@ -667,51 +667,116 @@
 .ds-pop-rule { height: 1px; background: var(--rule-soft); margin: 5px 0; }
 
 /* ── multi-step loader ─────────────────────────────────────────────────────
-   Rendered raw text until now: the component's classes lived only in the old
-   app.css, which the modal doesn't inherit.                                 */
+   Scoped under .ds AND explicit about every property the legacy app.css sets
+   (background, border, colour). Opacity alone wasn't enough: app.css paints
+   .loader-step with a dark --bg-2 fill, and an unset property is inherited,
+   not overridden.                                                           */
 
-.loader { display: grid; gap: 2px; margin-top: 4px; }
+.ds .loader { display: grid; gap: 8px; margin-top: 4px; }
 
-.loader-step {
+.ds .loader-step {
   display: flex; align-items: flex-start; gap: 13px;
-  padding: 11px 12px; border-radius: 12px;
-  transition: background .2s, opacity .2s;
+  padding: 12px 13px; border-radius: 13px;
+  background: var(--card-2);
+  border: 1px solid var(--rule-soft);
+  transition: background .2s, border-color .2s, opacity .2s;
 }
-.loader-step--idle { opacity: .42; }
-.loader-step--active { background: rgba(203, 246, 60, .13); }
-.loader-step--done { opacity: .85; }
-.loader-step--error { background: rgba(196, 85, 63, .08); }
+.ds .loader-step--idle { opacity: .55; }
+.ds .loader-step--done {
+  background: var(--card-2);
+  border-color: var(--rule-soft);
+}
+.ds .loader-step--active {
+  background: rgba(203, 246, 60, .16);
+  border-color: rgba(203, 246, 60, .5);
+}
+.ds .loader-step--error {
+  background: rgba(196, 85, 63, .08);
+  border-color: rgba(196, 85, 63, .28);
+}
 
-.loader-mark {
+.ds .loader-mark {
   width: 24px; height: 24px; flex: none; border-radius: 50%;
   display: grid; place-items: center;
   font-family: var(--font-mono); font-size: 10.5px;
-  background: var(--card-2); border: 1px solid var(--rule-soft);
+  background: #fff;
+  border: 1px solid var(--rule);
   color: var(--on-paper-faint);
 }
-.loader-step--done .loader-mark {
+.ds .loader-step--done .loader-mark {
   background: var(--forest); border-color: var(--forest);
   color: var(--lime); font-size: 12px;
 }
-.loader-step--active .loader-mark {
+.ds .loader-step--active .loader-mark {
   background: var(--lime); border-color: var(--lime-deep); color: var(--lime-ink);
 }
-.loader-step--error .loader-mark {
+.ds .loader-step--error .loader-mark {
   background: rgba(196,85,63,.12); border-color: rgba(196,85,63,.3); color: var(--alert);
 }
 
-.loader-spin {
+.ds .loader-spin {
   width: 11px; height: 11px; border-radius: 50%;
-  border: 1.6px solid rgba(22,48,31,.25); border-top-color: var(--forest);
+  border: 1.6px solid rgba(22,48,31,.28); border-top-color: var(--forest);
   animation: dsspin .65s linear infinite;
 }
 
-.loader-body { min-width: 0; padding-top: 1px; }
-.loader-label {
-  font-size: 14px; font-weight: 500; color: var(--on-paper); line-height: 1.35;
+.ds .loader-body { min-width: 0; padding-top: 1px; }
+.ds .loader-label {
+  font-size: 14px; font-weight: 500; line-height: 1.35;
+  color: var(--on-paper);
 }
-.loader-step--active .loader-label { color: var(--forest); }
-.loader-description {
+.ds .loader-step--active .loader-label { color: var(--forest); }
+.ds .loader-step--idle .loader-label { color: var(--on-paper-soft); }
+.ds .loader-description {
   font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5;
   color: var(--on-paper-faint); margin-top: 3px;
 }
+
+/* ── claim success ─────────────────────────────────────────────────────────
+   The name is minted; the next useful thing is getting the bookmarklet onto
+   the bookmarks bar, which is what makes the wallet usable on other sites.
+   Better asked here, while they're already paying attention, than buried.   */
+
+.ds-won { text-align: center; padding: 6px 0 2px; }
+.ds-won-tick {
+  width: 54px; height: 54px; margin: 0 auto 16px;
+  border-radius: 50%; display: grid; place-items: center;
+  background: linear-gradient(180deg, var(--lime) 0%, var(--lime-deep) 100%);
+  color: var(--lime-ink); font-size: 25px;
+  box-shadow: 0 10px 24px -10px var(--lime-glow);
+  animation: dstick .5s cubic-bezier(.2, .9, .3, 1.2);
+}
+@keyframes dstick { from { transform: scale(.5); opacity: 0; } }
+
+.ds-won-name {
+  font-family: var(--font-mono); font-size: 17px; color: var(--on-paper); margin: 0;
+}
+.ds-won-sub {
+  font-size: 13.5px; color: var(--on-paper-soft); margin: 7px 0 0; line-height: 1.55;
+}
+.ds-won-addr {
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--on-paper-faint);
+  margin: 9px 0 0;
+}
+
+.ds-won-drag {
+  margin: 20px 0 0; padding: 16px;
+  background: var(--card-2); border: 1px dashed var(--rule);
+  border-radius: 15px; text-align: left;
+}
+.ds-won-drag-k {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .15em;
+  text-transform: uppercase; color: var(--on-paper-faint); margin: 0 0 9px;
+}
+.ds-won-drag-row { display: flex; align-items: center; gap: 12px; }
+.ds-won-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 16px; border-radius: var(--r-pill);
+  background: var(--forest); color: var(--lime);
+  font: 500 13.5px/1 var(--font-body);
+  text-decoration: none; cursor: grab; flex: none;
+  box-shadow: 0 6px 16px -8px rgba(14,33,22,.5);
+}
+.ds-won-pill:active { cursor: grabbing; }
+.ds-won-hint { font-size: 12.5px; line-height: 1.5; color: var(--on-paper-soft); }
+.ds-won-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin-top: 18px; }

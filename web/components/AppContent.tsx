@@ -116,6 +116,26 @@ export default function AppContent() {
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [hasSession, setHasSession] = useState(false);
   const [claimOpen, setClaimOpen] = useState(false);
+  const [minted, setMinted] = useState<{ name: string; account: `0x${string}` } | null>(null);
+  const [bookmarklet, setBookmarklet] = useState("javascript:void(0)");
+
+  // Build the drag-to-bookmark link once the name is minted. The connector is
+  // inlined into the URL because a page's CSP will usually block loading it.
+  useEffect(() => {
+    if (!minted) return;
+    const origin = window.location.origin;
+    fetch(`${origin}/connector.js`, { cache: "no-store" })
+      .then((r) => r.text())
+      .then((code) => {
+        setBookmarklet(
+          "javascript:" +
+            encodeURIComponent(
+              `(function(){window.JUSTACONNECT_ORIGIN=${JSON.stringify(origin)};${code}})()`,
+            ),
+        );
+      })
+      .catch(() => { /* leave the no-op href; the /install page still works */ });
+  }, [minted]);
   const checkRef = useRef<number>(0);
 
   useEffect(() => {
@@ -179,7 +199,7 @@ export default function AppContent() {
         credentialId,
       });
       setPhase({ kind: "done", mode: "signup" });
-      setTimeout(() => router.push("/dashboard"), 600);
+      setMinted({ name: `${label}.${PARENT_NAME}`, account: out.account });
     } catch (e) {
       const stepId = phase.kind === "active" ? phase.stepId : "passkey";
       setPhase({ kind: "error", mode: "signup", stepId, message: (e as Error).message });
@@ -218,11 +238,11 @@ export default function AppContent() {
   useEffect(() => {
     if (!claimOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && phase.kind === "idle") setClaimOpen(false);
+      if (e.key === "Escape" && (phase.kind === "idle" || minted)) { setMinted(null); setClaimOpen(false); }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [claimOpen, phase.kind]);
+  }, [claimOpen, phase.kind, minted]);
 
   const inFlow = phase.kind === "active" || phase.kind === "done";
   const isError = phase.kind === "error";
@@ -474,11 +494,11 @@ export default function AppContent() {
       {claimOpen && (
         <div
           className="ds-modal-bg"
-          onClick={() => { if (phase.kind === "idle") setClaimOpen(false); }}
+          onClick={() => { if (phase.kind === "idle" || minted) { setMinted(null); setClaimOpen(false); } }}
         >
           <div className="ds-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal>
-            {phase.kind === "idle" && (
-              <button className="ds-modal-x" onClick={() => setClaimOpen(false)} aria-label="Close">
+            {(phase.kind === "idle" || minted) && (
+              <button className="ds-modal-x" onClick={() => { setMinted(null); setClaimOpen(false); }} aria-label="Close">
                 ×
               </button>
             )}
@@ -492,7 +512,44 @@ export default function AppContent() {
             )}
           </div>
 
-          {!inFlow ? (
+          {minted ? (
+            <div className="ds-won">
+              <div className="ds-won-tick" aria-hidden>✓</div>
+              <p className="ds-won-name">{minted.name}</p>
+              <p className="ds-won-sub">is yours — and it&apos;s already a wallet.</p>
+              <p className="ds-won-addr">{minted.account}</p>
+
+              <div className="ds-won-drag">
+                <p className="ds-won-drag-k">One last thing</p>
+                <div className="ds-won-drag-row">
+                  <a
+                    className="ds-won-pill"
+                    href={bookmarklet}
+                    draggable
+                    onClick={(e) => e.preventDefault()}
+                    title="Drag me to your bookmarks bar"
+                  >
+                    ◈ Sign in with ENSign
+                  </a>
+                  <span className="ds-won-hint">
+                    Drag this to your bookmarks bar to use your name on any dApp.
+                  </span>
+                </div>
+              </div>
+
+              <div className="ds-won-actions">
+                <button
+                  className="ds-btn ds-btn--ghost"
+                  onClick={() => { setMinted(null); setClaimOpen(false); }}
+                >
+                  Close
+                </button>
+                <button className="ds-btn" onClick={() => router.push("/dashboard")}>
+                  Open wallet <span aria-hidden>→</span>
+                </button>
+              </div>
+            </div>
+          ) : !inFlow ? (
             <>
               <p className="ds-claim-prompt">
                 {avail.state === "taken" ? (
@@ -556,9 +613,9 @@ export default function AppContent() {
                 done={phase.kind === "done"}
                 error={null}
               />
-              {phase.kind === "done" && (
+              {phase.kind === "done" && phase.mode === "signin" && (
                 <p className="ds-claim-prompt" style={{ marginTop: 16, marginBottom: 0 }}>
-                  ✓ {phase.mode === "signin" ? "Signed in" : "Sealed"} — opening dashboard…
+                  ✓ Signed in — opening your wallet…
                 </p>
               )}
             </>
