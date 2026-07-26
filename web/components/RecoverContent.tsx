@@ -110,6 +110,19 @@ function encodeEmailProof(p: EmailProofJson): Hex {
 }
 type Sig = { recoveryId: Hex; proof: Hex; signer: string };
 
+/// The relayer's own status vocabulary, in the order it moves through.
+const RELAY_STEPS = ["Sent", "Replied", "Proving", "Done"] as const;
+
+function relayStage(status: string | null): number {
+  if (!status) return 0;
+  const t = status.toLowerCase();
+  if (t.includes("finished") || t.includes("received —") || t.includes("approval received")) return 4;
+  if (t.includes("proving")) return 3;
+  if (t.includes("emailresponsereceived") || t.includes("replied")) return 2;
+  if (t.includes("emailsent") || t.includes("sent")) return 1;
+  return 1;
+}
+
 function short(a: string) {
   return a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a;
 }
@@ -457,25 +470,30 @@ export default function RecoverContent() {
     } finally { setBusy(null); }
   }
 
+  /**
+   * The platform broadcasts both transactions. Whoever is recovering has lost
+   * a device and may hold no ETH at all; a guardian is doing a favour. Neither
+   * should need gas — and the manager verifies everything on-chain regardless.
+   */
   async function submit() {
     if (!newKey || !target) return;
     setBusy("submit"); setErr(null);
     try {
-      const c = conn ?? await connectInjected(CHAIN_ID);
-      if (!conn) setConn(c);
-      // The wallet may have moved chains since it was connected.
-      await ensureChain(c.provider, CHAIN_ID);
-      const addr = c.address;
-      const client = createWalletClient({ chain: CHAIN, transport: custom(c.provider) });
       const subject = encodeAbiParameters(
         [{ type: "bytes32" }, { type: "bytes32" }], [newKey.qx, newKey.qy],
       );
-      const hash = await client.writeContract({
-        account: addr, address: MANAGER, abi: managerAbi,
-        functionName: "requestRecovery",
-        args: [target, subject, sigs.map((s) => ({ recoveryId: s.recoveryId, proof: s.proof }))],
+      const res = await fetch("/api/recovery-submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "request",
+          account: target,
+          subject,
+          approvals: sigs.map((x) => ({ recoveryId: x.recoveryId, proof: x.proof })),
+        }),
       });
-      await publicClient.waitForTransactionReceipt({ hash });
+      const json = (await res.json()) as { tx?: Hex; error?: string };
+      if (!res.ok || !json.tx) throw new Error(json.error ?? `HTTP ${res.status}`);
 
       const id = keccak256(
         encodeAbiParameters(
@@ -488,7 +506,7 @@ export default function RecoverContent() {
       }) as { account: Address; executeAt: bigint; subject: Hex };
       setRequestId(id);
       setExecuteAt(Number(req.executeAt));
-      setNote("request queued");
+      setNote(`request queued · ${json.tx.slice(0, 10)}…`);
     } catch (e) {
       setErr(`request failed: ${(e as Error).message}`);
     } finally { setBusy(null); }
@@ -498,17 +516,13 @@ export default function RecoverContent() {
     if (!requestId) return;
     setBusy("execute"); setErr(null);
     try {
-      const c = conn ?? await connectInjected(CHAIN_ID);
-      if (!conn) setConn(c);
-      // The wallet may have moved chains since it was connected.
-      await ensureChain(c.provider, CHAIN_ID);
-      const addr = c.address;
-      const client = createWalletClient({ chain: CHAIN, transport: custom(c.provider) });
-      const hash = await client.writeContract({
-        account: addr, address: MANAGER, abi: managerAbi,
-        functionName: "executeRecoveryRequest", args: [requestId],
+      const res = await fetch("/api/recovery-submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "execute", requestId }),
       });
-      await publicClient.waitForTransactionReceipt({ hash });
+      const json = (await res.json()) as { tx?: Hex; error?: string };
+      if (!res.ok || !json.tx) throw new Error(json.error ?? `HTTP ${res.status}`);
       setNote("recovered — the new passkey now controls this account");
       setRequestId(null);
     } catch (e) {
@@ -741,9 +755,31 @@ export default function RecoverContent() {
                           {busy === "email" ? "Waiting for their reply…" : "Send approval email"}
                         </button>
 
-                        {emailStatus && (
-                          <p className="ag-hint" style={{ marginTop: 10 }}>{emailStatus}</p>
-                        )}
+                        {emailStatus && (() => {
+                          const stage = relayStage(emailStatus);
+                          const done = stage >= 4;
+                          return (
+                            <div className="ds-prog">
+                              <div className="ds-prog-bar">
+                                <div
+                                  className={`ds-prog-fill ${done ? "ds-prog-fill--done" : "ds-prog-fill--live"}`}
+                                  style={{ width: `${(stage / 4) * 100}%` }}
+                                />
+                              </div>
+                              <div className="ds-prog-steps">
+                                {RELAY_STEPS.map((label, i) => (
+                                  <span
+                                    key={label}
+                                    className={stage > i + 1 ? "done" : stage === i + 1 ? "on" : ""}
+                                  >
+                                    {label}
+                                  </span>
+                                ))}
+                              </div>
+                              <p className="ds-prog-note">{emailStatus}</p>
+                            </div>
+                          );
+                        })()}
 
                         <p className="ag-hint" style={{ marginTop: 10 }}>
                           They just reply to the email. The proof is generated from their
