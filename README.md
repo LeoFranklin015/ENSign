@@ -64,7 +64,7 @@ ensign.eth
 └── leo                              ← smart account, passkey-signed
     └── recovery                     ← guardian namespace
         ├── mom                      ← guardian · ENS-committed
-        └── ghadi                    ← guardian · ENS-committed
+        └── dad                    ← guardian · ENS-committed
 ```
 
 Guardian subnames are real ENS records on `explorer.ens.dev`, not rows in a
