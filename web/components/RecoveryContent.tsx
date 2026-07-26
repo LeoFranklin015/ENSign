@@ -901,7 +901,9 @@ export default function RecoveryContent() {
           <div>
             <h1 className="ds-idcard-name">Recovery</h1>
             <p className="ds-idcard-addr">
-              guardians are subnames · {optedIn ? `${threshold} of ${recoveries.length} required` : "not enabled"}
+              {optedIn
+                ? `recovery.${label}.${PARENT_NAME} · ${threshold} of ${recoveries.length} required`
+                : "guardians are subnames · not enabled"}
             </p>
           </div>
           <div className="ds-idcard-actions">
