@@ -665,3 +665,53 @@
 .ds-pop-item--danger:hover { background: rgba(196,85,63,.07); color: var(--alert); }
 .ds-pop-hint { font-family: var(--font-mono); font-size: 10.5px; color: var(--on-paper-faint); }
 .ds-pop-rule { height: 1px; background: var(--rule-soft); margin: 5px 0; }
+
+/* ── multi-step loader ─────────────────────────────────────────────────────
+   Rendered raw text until now: the component's classes lived only in the old
+   app.css, which the modal doesn't inherit.                                 */
+
+.loader { display: grid; gap: 2px; margin-top: 4px; }
+
+.loader-step {
+  display: flex; align-items: flex-start; gap: 13px;
+  padding: 11px 12px; border-radius: 12px;
+  transition: background .2s, opacity .2s;
+}
+.loader-step--idle { opacity: .42; }
+.loader-step--active { background: rgba(203, 246, 60, .13); }
+.loader-step--done { opacity: .85; }
+.loader-step--error { background: rgba(196, 85, 63, .08); }
+
+.loader-mark {
+  width: 24px; height: 24px; flex: none; border-radius: 50%;
+  display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 10.5px;
+  background: var(--card-2); border: 1px solid var(--rule-soft);
+  color: var(--on-paper-faint);
+}
+.loader-step--done .loader-mark {
+  background: var(--forest); border-color: var(--forest);
+  color: var(--lime); font-size: 12px;
+}
+.loader-step--active .loader-mark {
+  background: var(--lime); border-color: var(--lime-deep); color: var(--lime-ink);
+}
+.loader-step--error .loader-mark {
+  background: rgba(196,85,63,.12); border-color: rgba(196,85,63,.3); color: var(--alert);
+}
+
+.loader-spin {
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 1.6px solid rgba(22,48,31,.25); border-top-color: var(--forest);
+  animation: dsspin .65s linear infinite;
+}
+
+.loader-body { min-width: 0; padding-top: 1px; }
+.loader-label {
+  font-size: 14px; font-weight: 500; color: var(--on-paper); line-height: 1.35;
+}
+.loader-step--active .loader-label { color: var(--forest); }
+.loader-description {
+  font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5;
+  color: var(--on-paper-faint); margin-top: 3px;
+}
