@@ -43,54 +43,62 @@ export async function POST(req: Request) {
       args: [ownersFor(qx, qy), 0n],
     })) as `0x${string}`;
 
-    // Three sequential transactions each awaiting a receipt is ~36s on
-    // Sepolia's block time — past a serverless function's limit, which
-    // surfaces as an aborted RPC call rather than a timeout. Nonces are
-    // assigned up front so all three can be broadcast back to back, and only
-    // the one the caller actually depends on is awaited.
-    let nonce = await pub.getTransactionCount({
-      address: wallet.account!.address,
-      blockTag: "pending",
-    });
-
-    // Pre-fund the EntryPoint deposit so the smart account can pay UserOp gas.
-    const depositTx = await wallet.writeContract({
-      address: ENTRYPOINT,
-      abi: epAbi,
-      functionName: "depositTo",
-      args: [predicted],
-      value: parseEther("0.005"),
-      nonce: nonce++,
-    });
-
-    // Tiny direct balance so the account can do small `value:` transfers.
-    const fundTx = await wallet.sendTransaction({
-      to: predicted,
-      value: parseEther("0.0001"),
-      nonce: nonce++,
-    });
-
+    // Ordering matters more than parallelism here.
+    //
+    // A previous version assigned nonces by hand and fired all three at once.
+    // Across a fallback transport consecutive sends can reach *different* RPC
+    // providers, so a manually-numbered transaction sits in one node's mempool
+    // behind a gap it never sees filled, and is eventually dropped. Let viem
+    // manage nonces, and put the only transaction the caller depends on first.
     const registerTx = await wallet.writeContract({
       address: REGISTRY,
       abi: registryAbi,
       functionName: "register",
       args: [label, qx, qy, credId, expiry],
-      nonce: nonce++,
     });
 
-    // Only this one gates the response: the client needs the name to exist.
-    // The funding transactions land in the same block or the next.
-    const receipt = await pub.waitForTransactionReceipt({
-      hash: registerTx,
-      timeout: 45_000,
-    });
+    let blockNumber: string | null = null;
+    try {
+      const receipt = await pub.waitForTransactionReceipt({
+        hash: registerTx,
+        timeout: 40_000,
+      });
+      blockNumber = receipt.blockNumber.toString();
+    } catch {
+      // Broadcast succeeded; the wait didn't. The name still lands a block or
+      // two later, so hand back the hash rather than failing a registration
+      // that is already on its way.
+      blockNumber = null;
+    }
+
+    // Funding follows. Neither is needed for the name to exist, so we only
+    // await the broadcast, never the receipt.
+    let depositTx: Hex | null = null;
+    let fundTx: Hex | null = null;
+    try {
+      depositTx = await wallet.writeContract({
+        address: ENTRYPOINT,
+        abi: epAbi,
+        functionName: "depositTo",
+        args: [predicted],
+        value: parseEther("0.005"),
+      });
+      fundTx = await wallet.sendTransaction({
+        to: predicted,
+        value: parseEther("0.0001"),
+      });
+    } catch (fundErr) {
+      // The account exists either way; it just can't pay for a UserOp yet.
+      console.error("register: funding failed", fundErr);
+    }
 
     return NextResponse.json({
       account: predicted,
       registerTx,
       depositTx,
       fundTx,
-      blockNumber: receipt.blockNumber.toString(),
+      blockNumber,
+      pending: blockNumber === null,
     });
   } catch (e) {
     const err = e as { shortMessage?: string; message?: string; details?: string; cause?: unknown };

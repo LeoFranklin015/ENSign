@@ -46,12 +46,26 @@ function transportFor(primary: string | undefined, backups: string[]) {
 const sepoliaTransport = transportFor(process.env.SEPOLIA_RPC_URL, SEPOLIA_FALLBACKS);
 const baseTransport = transportFor(process.env.BASE_SEPOLIA_RPC_URL, BASE_SEPOLIA_FALLBACKS);
 
+/**
+ * Reads may rotate between providers freely. Writes may not: sending
+ * consecutive transactions through different nodes strands a nonce in a
+ * mempool that never sees the gap filled, and the transaction is dropped. So
+ * the wallet pins one endpoint and only falls back if it is unreachable.
+ */
+function writeTransport(primary: string | undefined, backups: string[]) {
+  const first = (primary ?? backups[0]) as string;
+  return http(first, { timeout: 20_000, retryCount: 3, retryDelay: 400 });
+}
+
+const sepoliaWriteTransport = writeTransport(process.env.SEPOLIA_RPC_URL, SEPOLIA_FALLBACKS);
+const baseWriteTransport = writeTransport(process.env.BASE_SEPOLIA_RPC_URL, BASE_SEPOLIA_FALLBACKS);
+
 export const account = privateKeyToAccount(PK);
 
 const sepoliaPub = createPublicClient({ chain: sepolia, transport: sepoliaTransport });
-const sepoliaWallet = createWalletClient({ account, chain: sepolia, transport: sepoliaTransport });
+const sepoliaWallet = createWalletClient({ account, chain: sepolia, transport: sepoliaWriteTransport });
 const basePub = createPublicClient({ chain: baseSepolia, transport: baseTransport });
-const baseWallet = createWalletClient({ account, chain: baseSepolia, transport: baseTransport });
+const baseWallet = createWalletClient({ account, chain: baseSepolia, transport: baseWriteTransport });
 
 export function clientsForChain(chainId: number | string | undefined) {
   if (Number(chainId) === 84532) {
