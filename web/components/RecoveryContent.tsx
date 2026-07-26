@@ -121,6 +121,25 @@ async function deriveAccountSalt(emailAddress: string, accountCode: Hex): Promis
   return json.accountSalt as Hex;
 }
 
+function WalletIcon() {
+  return (
+    <svg className="ds-ic-svg" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <rect x="2" y="4.5" width="16" height="12" rx="2.6" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M2 8.2h16" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="14.3" cy="12.4" r="1.15" fill="currentColor" />
+    </svg>
+  );
+}
+
+function MailIcon() {
+  return (
+    <svg className="ds-ic-svg" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <rect x="2" y="4" width="16" height="12" rx="2.4" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M2.8 5.6 10 11l7.2-5.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 const zkProviderAbi = parseAbi([
   "function expectedCommand(address account, uint256 nonce, bytes subject) pure returns (string)",
   "function recoveryHash(address account, uint256 nonce, bytes subject) pure returns (bytes32)",
@@ -239,6 +258,16 @@ export default function RecoveryContent() {
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
   const [emailRequestId, setEmailRequestId] = useState<string | null>(null);
 
+  // One job on screen at a time: which half of the product you're in, and
+  // what the right pane is currently doing.
+  const [mode, setMode] = useState<"protect" | "recover">("protect");
+  const [pane, setPane] = useState<"summary" | "choose" | "eoa" | "email">("summary");
+  const [drawer, setDrawer] = useState(false);
+  // Shown after a successful email registration — losing this code kills the
+  // guardian, so it gets a modal rather than a line of prose.
+  const [showCode, setShowCode] = useState<Hex | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
+
   // recovery form
   const [targetAccount, setTargetAccount] = useState("");
   const [newKey, setNewKey] = useState<{ qx: Hex; qy: Hex } | null>(null);
@@ -355,7 +384,11 @@ export default function RecoveryContent() {
           abi: managerAbi, functionName: "addRecovery",
           args: [ZKEMAIL_PROVIDER, commitment, delay],
         }), MANAGER);
-      if (ok) setNote(`email guardian registered — SAVE this account code: ${code}`);
+      if (ok) {
+        setNote("email guardian registered");
+        setDrawer(false);
+        setShowCode(code);
+      }
     } catch (e) {
       setErr(`add email guardian failed: ${(e as Error).message}`);
     } finally { setBusy(null); }
@@ -749,311 +782,434 @@ export default function RecoveryContent() {
   );
 
   return (
-    <>
+    <div className="ds ds-page">
       <Nav />
-      <main className="ag-section">
-        <div className="ag-kicker">recovery</div>
-        <h2 className="ag-h2">Guardians for {label}</h2>
-        <p className="ag-hint mono">
-          manager {short(MANAGER)} · nonce {String(nonce)} · threshold {threshold}
-        </p>
 
-        {err && <div className="ag-error">{err}</div>}
-        {note && <div className="ag-hint mono">{note}</div>}
+      <main className="ds-wrap ds-app">
+        <header className="ds-idcard">
+          <div>
+            <h1 className="ds-idcard-name">Recovery</h1>
+            <p className="ds-idcard-addr">
+              guardians are subnames · {optedIn ? `${threshold} of ${recoveries.length} required` : "not enabled"}
+            </p>
+          </div>
+          <div className="ds-idcard-actions">
+            <div className="ds-tabs">
+              <button
+                className={`ds-tab-btn ${mode === "protect" ? "ds-tab-btn--on" : ""}`}
+                onClick={() => setMode("protect")}
+              >
+                Protect
+              </button>
+              <button
+                className={`ds-tab-btn ${mode === "recover" ? "ds-tab-btn--on" : ""}`}
+                onClick={() => setMode("recover")}
+              >
+                Recover
+              </button>
+            </div>
+          </div>
+        </header>
 
-        {/* ── 1. setup ─────────────────────────────────────────── */}
-        <section className="ag-preview">
-          <div className="ag-section-title">1 · Setup (as the account owner)</div>
-          <div className="ag-preview-body">
-            <div className="ag-row">
-              <span className="ag-prelabel">opt-in</span>
-              {optedIn ? (
-                <span className="ag-hint mono">manager is an owner ✓</span>
+        {err && <div className="agents-err">{err}</div>}
+        {note && <div className="agents-note">{note}</div>}
+
+        {/* ── PROTECT ─────────────────────────────────────────────────── */}
+        {mode === "protect" && !optedIn && (
+          <section className="ds-off ds-in">
+            <div className="ds-off-ic" aria-hidden>!</div>
+            <h2>Recovery is off</h2>
+            <p>
+              If you lose the device holding your passkey, there is no way back into
+              this account. Turning recovery on lets people you trust restore access —
+              and never lets them spend anything.
+            </p>
+            <div className="ds-off-why">
+              <div><b>01</b><span>Guardians can only add a new passkey, never move funds.</span></div>
+              <div><b>02</b><span>Every recovery waits out a timelock you can cancel.</span></div>
+              <div><b>03</b><span>Guardians are names, so they keep working if someone changes wallet.</span></div>
+            </div>
+            <button className="ds-btn" disabled={!!busy} onClick={enableRecovery}>
+              {busy === "enable recovery" ? "Approving…" : "Turn on recovery"}
+            </button>
+          </section>
+        )}
+
+        {mode === "protect" && optedIn && (
+          <div className="ds-split2 ds-split2--solo">
+            {/* left: who can vouch for you */}
+            <aside className="ds-pane ds-in">
+              <div className="ds-pane-h">
+                <h3>Guardians</h3>
+                <span className="ds-pane-count">{threshold} of {recoveries.length}</span>
+              </div>
+
+              {recoveries.length === 0 ? (
+                <div className="ds-empty">
+                  No guardians yet.<br />Add one to arm recovery.
+                </div>
               ) : (
-                <button className="action" disabled={!!busy} onClick={enableRecovery}>
-                  {busy === "enable recovery" ? "…" : "Enable recovery"}
-                </button>
+                <div className="ds-glist">
+                  {recoveries.map((r, i) => (
+                    <div className="ds-grow" key={i}>
+                      <span className="ds-grow-ic" aria-hidden>
+                        {r.provider.toLowerCase() === ZKEMAIL_PROVIDER.toLowerCase()
+                          ? <MailIcon />
+                          : <WalletIcon />}
+                      </span>
+                      <span className="ds-grow-b">
+                        <div className="ds-grow-t">{describeCommitment(r)}</div>
+                        <div className="ds-grow-s">
+                          {PROVIDER_NAMES[r.provider.toLowerCase()] ?? short(r.provider)}
+                          {r.delay > 0 ? ` · ${r.delay / 60}min delay` : " · no delay"}
+                        </div>
+                      </span>
+                      <button
+                        className="ds-grow-x"
+                        title="Remove guardian"
+                        disabled={!!busy}
+                        onClick={() => removeGuardian(r)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
-            </div>
 
-            <div className="ag-field">
-              <label className="ag-field-label">add guardian (EOA)</label>
-              <div className="ag-row">
-                <input
-                  className="ag-input mono" placeholder="0x… guardian wallet"
-                  value={guardianAddr} onChange={(e) => setGuardianAddr(e.target.value)}
-                />
-                <input
-                  className="ag-input ag-input--num ag-input--inline" placeholder="delay"
-                  value={delayMins} onChange={(e) => setDelayMins(e.target.value)}
-                />
-                <span className="ag-hint mono">min</span>
-                <button className="action" disabled={!!busy || !optedIn} onClick={addEoaGuardian}>
-                  Add
-                </button>
-              </div>
-              <p className="ag-hint mono">
-                Uses the ECDSA provider. ENS-name guardians are registered by the
-                setup script (needs the namespace minted first).
-              </p>
-            </div>
+              <button
+                className="ds-btn ds-btn--block"
+                style={{ marginTop: 14 }}
+                disabled={!!busy}
+                onClick={() => { setPane("choose"); setDrawer(true); }}
+              >
+                Add a guardian +
+              </button>
 
-            <div className="ag-field">
-              <label className="ag-field-label">add guardian (email · zkEmail)</label>
-              <div className="ag-row">
-                <input
-                  className="ag-input mono" placeholder="mom@gmail.com"
-                  value={guardianEmail} onChange={(e) => setGuardianEmail(e.target.value)}
-                />
-                <button
-                  className="action" disabled={!!busy || !optedIn}
-                  onClick={addEmailGuardian}
-                >
-                  {busy === "add email guardian" ? "…" : "Add email"}
-                </button>
-              </div>
-              {accountCode && (
-                <p className="ag-hint mono">
-                  account code (save this — needed to prove later): {accountCode}
-                </p>
-              )}
-              <p className="ag-hint mono">
-                The address is never stored on-chain: the commitment is
-                Poseidon(email, accountCode) derived via zkEmail&apos;s relayer.
-              </p>
-            </div>
-
-            <div className="ag-field">
-              <label className="ag-field-label">threshold</label>
-              <div className="ag-row">
-                <input
-                  className="ag-input ag-input--num ag-input--inline"
-                  value={thresholdInput} onChange={(e) => setThresholdInput(e.target.value)}
-                />
-                <span className="ag-hint mono">of {recoveries.length}</span>
-                <button className="action" disabled={!!busy} onClick={applyThreshold}>Set</button>
-              </div>
-            </div>
-
-            <div className="ag-exec-list">
-              {recoveries.length === 0 && (
-                <p className="ag-hint mono">no guardians yet</p>
-              )}
-              {recoveries.map((r, i) => (
-                <div className="ag-exec-item" key={i}>
-                  <div className="ag-exec-item-head">
-                    <span className="ag-exec-idx">{i + 1}</span>
-                    <span className="mono">{describeCommitment(r)}</span>
-                  </div>
-                  <div className="ag-exec-item-meta mono">
-                    {PROVIDER_NAMES[r.provider.toLowerCase()] ?? short(r.provider)} · delay{" "}
-                    {r.delay === 0 ? "none" : `${r.delay / 60}min`}
-                    <button className="ag-ghost" disabled={!!busy} onClick={() => removeGuardian(r)}>
-                      remove
+              {recoveries.length >= 1 && (
+                <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--rule-soft)" }}>
+                  <p className="ds-strip-k">Threshold</p>
+                  <div className="ag-row">
+                    <input
+                      className="ag-input ag-input--num"
+                      value={thresholdInput}
+                      onChange={(e) => setThresholdInput(e.target.value)}
+                    />
+                    <span className="ag-hint">of {recoveries.length} must approve</span>
+                    <button className="ds-mini" style={{ width: "auto", marginTop: 0 }}
+                            disabled={!!busy} onClick={applyThreshold}>
+                      Set
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+            </aside>
+
           </div>
-        </section>
+        )}
 
-        {/* ── 2. recover ───────────────────────────────────────── */}
-        <section className="ag-preview">
-          <div className="ag-section-title">2 · Recover (lost device)</div>
-          <div className="ag-preview-body">
-            <div className="ag-field">
-              <label className="ag-field-label">account to recover</label>
-              <input
-                className="ag-input mono" value={targetAccount}
-                onChange={(e) => setTargetAccount(e.target.value)}
-              />
-            </div>
-
-            <div className="ag-row">
-              <button className="action" disabled={!!busy} onClick={generateKey}>
-                {busy === "create passkey" ? "…" : "1. Create new passkey"}
-              </button>
-              {newKey && <span className="ag-hint mono">qx {short(newKey.qx)}</span>}
-            </div>
-            {newKey && (
-              <p className="ag-hint mono">
-                for the offline prover scripts:<br />
-                qx {newKey.qx}<br />
-                qy {newKey.qy}<br />
-                nonce {String(nonce)} · account {targetAccount || account}
-              </p>
+        {/* ── RECOVER ─────────────────────────────────────────────────── */}
+        {mode === "recover" && (
+          <div className="ds-flow">
+            {!optedIn && (
+              <div className="ds-empty">Recovery isn&apos;t enabled on this account.</div>
             )}
 
-            <div className="ag-row">
-              <button className="action" disabled={!!busy || !newKey} onClick={signAsGuardian}>
-                {busy === "guardian signature" ? "…" : "2. Sign as guardian (wallet)"}
-              </button>
-              <span className="ag-hint mono">
-                {sigs.length}/{threshold} signatures
-              </span>
-            </div>
-            {sigs.map((s) => (
-              <div className="ag-hint mono" key={s.recoveryId}>
-                ✓ {s.signer.startsWith("email") ? s.signer : short(s.signer)}
-              </div>
-            ))}
-
-            <div className="ag-field">
-              <label className="ag-field-label">2b · approve by email (zkEmail)</label>
-
-              {emailGuardians.length === 0 && (
-                <p className="ag-hint mono">no email guardians registered</p>
-              )}
-
-              {emailGuardians.length > 0 && (
-                <>
-                  <div className="ag-row">
-                    <input
-                      className="ag-input mono"
-                      placeholder="account code saved at registration (0x…64 hex)"
-                      value={accountCode ?? ""}
-                      onChange={(e) => setAccountCode(e.target.value.trim() as Hex)}
-                    />
+            {optedIn && (
+              <>
+                <div className={`ds-step ${newKey ? "" : ""}`}>
+                  <div className="ds-step-h">
+                    <span className="ds-step-n">1</span>
+                    <h4>Create the replacement passkey</h4>
+                    {newKey && <span className="ds-step-done">✓ created</span>}
                   </div>
-                  {/* Only offer the relayer path when one is actually configured —
-                      otherwise this silently calls the dead hosted service. */}
-                  {HAS_RELAYER && (
-                    <div className="ag-row">
-                      <input
-                        className="ag-input mono" placeholder="guardian email"
-                        value={guardianEmail} onChange={(e) => setGuardianEmail(e.target.value)}
-                      />
-                      <button
-                        className="action"
-                        disabled={!!busy || !newKey || !accountCode}
-                        onClick={() => requestEmailApproval(emailGuardians[0])}
-                      >
-                        {busy === "email approval" ? "waiting…" : "Send approval email"}
+                  <p className="ag-hint">
+                    This is the key your guardians will authorise. Nothing is on-chain yet.
+                  </p>
+                  <button className="ds-btn" style={{ marginTop: 12 }} disabled={!!busy} onClick={generateKey}>
+                    {busy === "create passkey" ? "…" : newKey ? "Create another" : "Create passkey"}
+                  </button>
+                  {newKey && (
+                    <p className="ag-hint" style={{ marginTop: 10, fontFamily: "var(--font-mono)", fontSize: 11 }}>
+                      qx {newKey.qx}<br />qy {newKey.qy}<br />
+                      nonce {String(nonce)} · account {targetAccount || account}
+                    </p>
+                  )}
+                </div>
+
+                <div className={`ds-step ${newKey ? "" : "ds-step--muted"}`}>
+                  <div className="ds-step-h">
+                    <span className="ds-step-n">2</span>
+                    <h4>Collect {threshold} approval{threshold > 1 ? "s" : ""}</h4>
+                    <span className="ds-step-done">{sigs.length}/{threshold}</span>
+                  </div>
+
+                  <div className="ag-row">
+                    <button className="ghost" disabled={!!busy || !newKey} onClick={signAsGuardian}>
+                      Sign as a wallet guardian
+                    </button>
+                    {emailGuardians.length > 0 && (
+                      <button className="ghost" disabled={!!busy || !newKey} onClick={showEmailCommand}>
+                        Show email command
                       </button>
+                    )}
+                  </div>
+
+                  {sigs.map((s2) => (
+                    <p className="ag-hint" key={s2.recoveryId} style={{ marginTop: 8 }}>
+                      ✓ {s2.signer.startsWith("email") ? s2.signer : short(s2.signer)}
+                    </p>
+                  ))}
+
+                  {emailGuardians.length > 0 && newKey && (
+                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--rule-soft)" }}>
+                      <p className="ds-strip-k">By email</p>
+                      {emailCommand && (
+                        <p className="ag-hint" style={{ marginBottom: 10 }}>
+                          The email body must contain exactly:<br />
+                          <b style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, wordBreak: "break-all" }}>
+                            {emailCommand}
+                          </b>
+                        </p>
+                      )}
+                      <div className="ag-row">
+                        <input
+                          className="ag-input ag-input--inline"
+                          placeholder="account code (0x…)"
+                          value={accountCode ?? ""}
+                          onChange={(e) => setAccountCode(e.target.value.trim() as Hex)}
+                        />
+                        {HAS_RELAYER && (
+                          <button
+                            className="ghost"
+                            disabled={!!busy || !accountCode}
+                            onClick={() => requestEmailApproval(emailGuardians[0])}
+                          >
+                            {busy === "email approval" ? "waiting…" : "Send approval email"}
+                          </button>
+                        )}
+                      </div>
+                      <p className="ds-strip-k" style={{ marginTop: 14 }}>Or prove a saved .eml</p>
+                      <input
+                        type="file" accept=".eml,message/rfc822" className="ag-input"
+                        disabled={!!busy || !accountCode}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) void proveEmlAndAttach(f); }}
+                      />
+                      {emailStatus && <p className="ag-hint" style={{ marginTop: 8 }}>{emailStatus}</p>}
+                      <details style={{ marginTop: 10 }}>
+                        <summary className="ag-hint">paste a proof instead</summary>
+                        <textarea
+                          className="ag-input" rows={4} style={{ marginTop: 8 }}
+                          placeholder='{"domainName":"gmail.com",…}'
+                          value={emailProofJson}
+                          onChange={(e) => setEmailProofJson(e.target.value)}
+                        />
+                        <button className="ghost" style={{ marginTop: 8 }}
+                                disabled={!!busy || !emailProofJson.trim()} onClick={attachEmailProof}>
+                          Attach proof
+                        </button>
+                      </details>
                     </div>
                   )}
-                  {/* Say why the button is disabled — otherwise it just looks broken. */}
-                  {!newKey && (
-                    <p className="ag-hint mono">
-                      ⚠ click <strong>&ldquo;1. Create new passkey&rdquo;</strong> above first —
-                      the email has to commit to a specific new key.
-                    </p>
-                  )}
-                  {newKey && !accountCode && (
-                    <p className="ag-hint mono">
-                      ⚠ paste the account code you saved when registering this guardian.
-                    </p>
-                  )}
-                  {newKey && accountCode && accountCode.length !== 66 && (
-                    <p className="ag-hint mono">
-                      ⚠ account code must be 32 bytes (0x + 64 hex), got{" "}
-                      {(accountCode.length - 2) / 2} bytes.
-                    </p>
-                  )}
-                </>
-              )}
-
-              {emailStatus && <p className="ag-hint mono">{emailStatus}</p>}
-              {emailRequestId && (
-                <p className="ag-hint mono">request {emailRequestId}</p>
-              )}
-
-              {/* Prover-only path: no relayer, no SMTP. The guardian mails the
-                  command from any client; drop the saved .eml here. */}
-              <div className="ag-field">
-                <label className="ag-field-label">
-                  {HAS_RELAYER
-                    ? "or: prove a saved .eml with your own prover"
-                    : "prove a saved .eml with your own prover"}
-                </label>
-                <div className="ag-row">
-                  <button
-                    className="action" disabled={!!busy || !newKey}
-                    onClick={showEmailCommand}
-                  >
-                    Show command to email
-                  </button>
                 </div>
-                {emailCommand && (
-                  <p className="ag-hint mono">
-                    put this exact line in the email body, then save the .eml:<br />
-                    <strong>{emailCommand}</strong>
-                  </p>
-                )}
-                <input
-                  type="file" accept=".eml,message/rfc822"
-                  className="ag-input mono"
-                  disabled={!!busy || !accountCode}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void proveEmlAndAttach(f);
-                  }}
-                />
-                <p className="ag-hint mono">
-                  Gmail: ⋮ → Show original → Download original. Proving runs on the
-                  prover configured server-side (PROVER_URL).
-                </p>
-              </div>
 
-              <details>
-                <summary className="ag-hint mono">manual: paste a proof instead</summary>
-                <div className="ag-row">
-                  <button className="action" disabled={!!busy || !newKey} onClick={showEmailCommand}>
-                    Show command
-                  </button>
+                <div className={`ds-step ${sigs.length >= threshold ? "" : "ds-step--muted"}`}>
+                  <div className="ds-step-h">
+                    <span className="ds-step-n">3</span>
+                    <h4>Request and execute</h4>
+                    {requestId && (
+                      <span className="ds-step-done">
+                        {ready ? "ready" : `${Math.max(0, executeAt - now)}s`}
+                      </span>
+                    )}
+                  </div>
+                  <div className="ag-row">
+                    <button
+                      className="ds-btn"
+                      disabled={!!busy || sigs.length < threshold || !!requestId}
+                      onClick={submitRequest}
+                    >
+                      {busy === "submit request" ? "…" : "Submit request"}
+                    </button>
+                    {requestId && (
+                      <>
+                        <button className="ds-btn" disabled={!!busy || !ready} onClick={executeRequest}>
+                          Execute
+                        </button>
+                        <button className="ghost" disabled={!!busy} onClick={cancelRequest}>
+                          Cancel (veto)
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                {emailCommand && (
-                  <p className="ag-hint mono">
-                    the email must authorize exactly:<br />
-                    <strong>{emailCommand}</strong>
-                  </p>
-                )}
-                <textarea
-                  className="ag-input mono" rows={4}
-                  placeholder='paste EmailProof JSON {"domainName":"gmail.com",…}'
-                  value={emailProofJson} onChange={(e) => setEmailProofJson(e.target.value)}
-                />
-                <button
-                  className="action" disabled={!!busy || !emailProofJson.trim()}
-                  onClick={attachEmailProof}
-                >
-                  Attach email proof
+              </>
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* ── add-guardian drawer ──────────────────────────────────────── */}
+      {drawer && (
+        <>
+          <div className="ds-drawer-bg" onClick={() => !busy && setDrawer(false)} />
+          <aside className="ds-drawer" role="dialog" aria-modal>
+            <div className="ds-drawer-h">
+              {pane !== "choose" && (
+                <button className="ds-back" style={{ margin: 0 }} onClick={() => setPane("choose")}>
+                  ←
                 </button>
-              </details>
-            </div>
-
-            <div className="ag-row">
-              <button
-                className="action"
-                disabled={!!busy || sigs.length < threshold || !!requestId}
-                onClick={submitRequest}
-              >
-                {busy === "submit request" ? "…" : "3. Submit request"}
+              )}
+              <h3>
+                {pane === "choose" && "Add a guardian"}
+                {pane === "eoa" && "Wallet guardian"}
+                {pane === "email" && "Email guardian"}
+              </h3>
+              <button className="ds-drawer-x" onClick={() => !busy && setDrawer(false)} aria-label="Close">
+                ×
               </button>
             </div>
 
-            {requestId && (
-              <div className="ag-exec-item">
-                <div className="ag-exec-item-head">
-                  <span className="mono">request {short(requestId)}</span>
-                </div>
-                <div className="ag-exec-when mono">
-                  {ready ? "ready to execute" : `executable in ${executeAt - now}s`}
-                </div>
-                <div className="ag-modal-actions">
-                  <button className="action" disabled={!!busy || !ready} onClick={executeRequest}>
-                    4. Execute
+            <div className="ds-drawer-b">
+              {pane === "choose" && (
+                <div className="ds-methods">
+                  <button className="ds-method" onClick={() => setPane("eoa")}>
+                    <span className="ds-method-ic" aria-hidden><WalletIcon /></span>
+                    <span>
+                      <div className="ds-method-t">A wallet</div>
+                      <div className="ds-method-s">
+                        Someone with an Ethereum address. They approve by signing — free, no gas.
+                      </div>
+                    </span>
+                    <span className="ds-method-go">→</span>
                   </button>
-                  <button className="ag-ghost" disabled={!!busy} onClick={cancelRequest}>
-                    Cancel (veto, as owner)
+
+                  <button className="ds-method" onClick={() => setPane("email")}>
+                    <span className="ds-method-ic" aria-hidden><MailIcon /></span>
+                    <span>
+                      <div className="ds-method-t">An email address</div>
+                      <div className="ds-method-s">
+                        They approve by replying to an email. Proven with zkEmail — the address
+                        never touches the chain.
+                      </div>
+                    </span>
+                    <span className="ds-method-go">→</span>
                   </button>
                 </div>
+              )}
+
+              {pane === "eoa" && (
+                <div className="ag-section">
+                  <div className="ag-field">
+                    <label className="ag-field-label">Their address</label>
+                    <input
+                      className="ag-input" placeholder="0x…"
+                      value={guardianAddr}
+                      onChange={(e) => setGuardianAddr(e.target.value)}
+                    />
+                  </div>
+                  <div className="ag-field">
+                    <label className="ag-field-label">Timelock before their approval can execute</label>
+                    <div className="ag-row">
+                      <input
+                        className="ag-input ag-input--num"
+                        value={delayMins}
+                        onChange={(e) => setDelayMins(e.target.value)}
+                      />
+                      <span className="ag-hint">minutes · you can cancel during this window</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {pane === "email" && (
+                <div className="ag-section">
+                  <div className="ag-field">
+                    <label className="ag-field-label">Their email address</label>
+                    <input
+                      className="ag-input" placeholder="mom@gmail.com"
+                      value={guardianEmail}
+                      onChange={(e) => setGuardianEmail(e.target.value)}
+                    />
+                  </div>
+                  <p className="ag-hint">
+                    Only a hash reaches the chain — Poseidon(email, secret code). You&apos;ll get
+                    the code to save once it&apos;s registered.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {pane !== "choose" && (
+              <div className="ds-drawer-f">
+                <button
+                  className="ds-btn ds-btn--block"
+                  disabled={!!busy}
+                  onClick={pane === "eoa" ? addEoaGuardian : addEmailGuardian}
+                >
+                  {busy ? "Approving…" : "Add guardian"}
+                </button>
               </div>
             )}
+          </aside>
+        </>
+      )}
+
+      {/* ── account code, once the guardian exists ───────────────────── */}
+      {showCode && (
+        <div className="ds-modal-bg" onClick={() => setShowCode(null)}>
+          <div className="ds-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal>
+            <div className="ds-pane-h"><h3>Save this account code</h3></div>
+
+            <div className="ds-code-warn">
+              <span aria-hidden style={{ color: "var(--alert)", fontSize: 15 }}>!</span>
+              <span>
+                <b>You cannot see this again.</b>
+                <p>
+                  It is half of the guardian&apos;s identity. Without it this email can never
+                  approve a recovery — store it in your password manager now.
+                </p>
+              </span>
+            </div>
+
+            <div className="ds-codebox">
+              <code>{showCode}</code>
+              <button
+                className="ds-copy"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(showCode);
+                    setCodeCopied(true);
+                    setTimeout(() => setCodeCopied(false), 1600);
+                  } catch { /* clipboard blocked */ }
+                }}
+              >
+                {codeCopied ? "Copied ✓" : "Copy"}
+              </button>
+            </div>
+
+            <button
+              className="ds-btn ds-btn--block"
+              style={{ marginTop: 18 }}
+              onClick={() => setShowCode(null)}
+            >
+              I&apos;ve saved it
+            </button>
           </div>
-        </section>
-      </main>
-    </>
+        </div>
+      )}
+
+      <footer className="ds-footer">
+        <div className="ds-footer-in">
+          <span className="ds-footer-who">
+            <i /> {label ? `Signed in as ${label}` : "Recovery"}
+          </span>
+          <span className="ds-footer-links">
+            <a href="/dashboard">Wallet</a>
+            <a href="/agents">Agents</a>
+          </span>
+        </div>
+      </footer>
+    </div>
   );
 }

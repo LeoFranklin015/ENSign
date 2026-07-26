@@ -1382,3 +1382,227 @@
 }
 
 @media (max-width: 900px) { .ds .agents-list { grid-template-columns: 1fr; } }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Recovery — one job on screen at a time.
+
+   Off:  a single card. Nothing about guardians until recovery exists.
+   On:   guardians on the left, and the right pane does exactly one thing —
+         choose a method, or fill in that method's fields.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.ds-tabs { display: inline-flex; gap: 4px; padding: 4px; background: var(--paper-2);
+  border-radius: var(--r-pill); border: 1px solid var(--rule-soft); }
+.ds-tab-btn {
+  padding: 9px 18px; border-radius: var(--r-pill); border: 0; cursor: pointer;
+  background: transparent; color: var(--on-paper-soft);
+  font: 500 13.5px/1 var(--font-body); transition: background .16s, color .16s;
+}
+.ds-tab-btn:hover { color: var(--on-paper); }
+.ds-tab-btn--on { background: #fff; color: var(--forest); box-shadow: 0 1px 3px rgba(22,48,31,.1); }
+
+/* ── off state ─────────────────────────────────────────────────────────── */
+
+.ds-off {
+  max-width: 620px; margin: 12px auto 0; text-align: center;
+  background: var(--card); border: 1px solid var(--rule-soft);
+  border-radius: 22px; padding: 40px 36px;
+  box-shadow: 0 28px 56px -40px rgba(22,48,31,.4);
+}
+.ds-off-ic {
+  width: 56px; height: 56px; margin: 0 auto 20px; border-radius: 18px;
+  display: grid; place-items: center; font-size: 24px;
+  background: rgba(196,85,63,.1); color: var(--alert);
+}
+.ds-off h2 {
+  font-family: var(--font-display); font-weight: 600; font-size: 28px;
+  letter-spacing: -0.03em; color: var(--forest); margin: 0 0 12px;
+}
+.ds-off p { font-size: 14.5px; line-height: 1.65; color: var(--on-paper-soft); margin: 0 auto; max-width: 46ch; }
+.ds-off-why {
+  display: grid; gap: 10px; margin: 26px 0; text-align: left;
+  padding: 18px; background: var(--card-2); border-radius: 15px;
+}
+.ds-off-why div { display: flex; gap: 11px; font-size: 13px; color: var(--on-paper-soft); line-height: 1.5; }
+.ds-off-why b { color: var(--forest); font-weight: 500; flex: none; font-family: var(--font-mono); font-size: 12px; }
+
+/* ── split ─────────────────────────────────────────────────────────────── */
+
+.ds-split2 { display: grid; grid-template-columns: 340px 1fr; gap: 18px; align-items: start; }
+
+.ds-pane {
+  background: var(--card); border: 1px solid var(--rule-soft);
+  border-radius: 20px; padding: 22px;
+}
+.ds-pane-h {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+}
+.ds-pane-h h3 {
+  font-family: var(--font-display); font-weight: 600; font-size: 19px;
+  letter-spacing: -0.026em; color: var(--forest); margin: 0;
+}
+.ds-pane-h .ds-pane-count {
+  margin-left: auto; font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: .1em; text-transform: uppercase; padding: 4px 9px;
+  border-radius: 6px; background: var(--card-2); color: var(--on-paper-faint);
+  border: 1px solid var(--rule-soft);
+}
+
+/* guardian rows */
+.ds-glist { display: grid; gap: 8px; }
+.ds-grow {
+  display: flex; align-items: center; gap: 11px; overflow: hidden;
+  padding: 12px 13px; border-radius: 13px; cursor: default;
+  background: var(--card-2); border: 1px solid var(--rule-soft);
+}
+.ds-grow-ic {
+  width: 30px; height: 30px; border-radius: 10px; flex: none;
+  display: grid; place-items: center; font-size: 13px;
+  background: var(--forest); color: var(--lime);
+}
+.ds-grow-b { min-width: 0; flex: 1; overflow: hidden; }
+.ds-grow-t {
+  font-family: var(--font-mono); font-size: 12.5px; color: var(--on-paper);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+.ds-grow-s {
+  font-size: 11px; color: var(--on-paper-faint); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+.ds-grow-x {
+  margin-left: auto; flex: none; border: 0; background: transparent; cursor: pointer;
+  color: var(--on-paper-faint); font-size: 15px; padding: 4px 6px; border-radius: 7px;
+}
+.ds-grow-x:hover { background: rgba(196,85,63,.1); color: var(--alert); }
+
+.ds-empty {
+  padding: 26px 18px; text-align: center; border-radius: 14px;
+  background: var(--card-2); border: 1px dashed var(--rule);
+  font-size: 13px; color: var(--on-paper-faint); line-height: 1.6;
+}
+
+/* method chooser — the only thing in the right pane until one is picked */
+.ds-methods { display: grid; gap: 12px; }
+.ds-method {
+  display: flex; align-items: center; gap: 14px; text-align: left;
+  padding: 18px; border-radius: 16px; cursor: pointer;
+  background: var(--card-2); border: 1px solid var(--rule-soft);
+  transition: transform .17s, border-color .17s, box-shadow .17s;
+}
+.ds-method:hover {
+  transform: translateY(-2px); border-color: rgba(203,246,60,.65);
+  box-shadow: 0 14px 30px -22px rgba(22,48,31,.4);
+}
+.ds-method-ic {
+  width: 40px; height: 40px; border-radius: 13px; flex: none;
+  display: grid; place-items: center; font-size: 17px;
+  background: var(--forest); color: var(--lime);
+}
+.ds-method-t {
+  font-family: var(--font-display); font-weight: 600; font-size: 17px;
+  letter-spacing: -0.02em; color: var(--forest);
+}
+.ds-method-s { font-size: 12.5px; color: var(--on-paper-soft); margin-top: 4px; line-height: 1.5; }
+.ds-method-go { margin-left: auto; color: var(--on-paper-faint); flex: none; }
+
+.ds-back {
+  border: 0; background: transparent; cursor: pointer; padding: 0;
+  font: 500 12.5px/1 var(--font-body); color: var(--on-paper-soft); margin-bottom: 14px;
+}
+.ds-back:hover { color: var(--on-paper); }
+
+/* stacked numbered flow for the recover side */
+.ds-flow { display: grid; gap: 12px; }
+.ds-step {
+  background: var(--card); border: 1px solid var(--rule-soft);
+  border-radius: 18px; padding: 20px 22px;
+}
+.ds-step--muted { opacity: .5; }
+.ds-step-h { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.ds-step-n {
+  width: 26px; height: 26px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-family: var(--font-mono); font-size: 11px;
+  background: var(--forest); color: var(--lime);
+}
+.ds-step-h h4 {
+  font-family: var(--font-display); font-weight: 600; font-size: 17px;
+  letter-spacing: -0.02em; color: var(--forest); margin: 0;
+}
+.ds-step-done { margin-left: auto; font-family: var(--font-mono); font-size: 10.5px; color: var(--data); }
+
+@media (max-width: 980px) { .ds-split2 { grid-template-columns: 1fr; } }
+
+/* ── right drawer ──────────────────────────────────────────────────────────
+   Data entry slides in from the side rather than living in a second column.
+   The page keeps its space, and nothing irrelevant is on screen while you
+   fill a form.                                                              */
+
+.ds-drawer-bg {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(14, 33, 22, .3); backdrop-filter: blur(4px);
+  animation: dsfade .2s ease-out;
+}
+.ds-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 91;
+  width: min(460px, 100%);
+  background: var(--card); border-left: 1px solid var(--rule-soft);
+  box-shadow: -30px 0 70px -30px rgba(14, 33, 22, .4);
+  display: flex; flex-direction: column;
+  animation: dsslide .3s cubic-bezier(.2, .8, .25, 1);
+}
+@keyframes dsslide { from { transform: translateX(100%); } }
+
+.ds-drawer-h {
+  display: flex; align-items: center; gap: 12px;
+  padding: 22px 24px; border-bottom: 1px solid var(--rule-soft); flex: none;
+}
+.ds-drawer-h h3 {
+  font-family: var(--font-display); font-weight: 600; font-size: 21px;
+  letter-spacing: -0.026em; color: var(--forest); margin: 0;
+}
+.ds-drawer-x {
+  margin-left: auto; width: 32px; height: 32px; border-radius: 50%; flex: none;
+  border: 1px solid var(--rule-soft); background: var(--card-2);
+  color: var(--on-paper-soft); font-size: 16px; cursor: pointer;
+  display: grid; place-items: center;
+}
+.ds-drawer-x:hover { background: var(--paper-2); }
+.ds-drawer-b { padding: 24px; overflow-y: auto; flex: 1; }
+.ds-drawer-f {
+  padding: 18px 24px; border-top: 1px solid var(--rule-soft);
+  background: var(--card-2); flex: none;
+}
+
+/* ── account-code modal ────────────────────────────────────────────────────
+   Shown after the guardian is registered, because losing this code kills the
+   guardian and an inline note is too easy to scroll past.                   */
+
+.ds-code-warn {
+  display: flex; gap: 11px; padding: 14px;
+  background: rgba(196,85,63,.07); border: 1px solid rgba(196,85,63,.22);
+  border-radius: 13px; margin-bottom: 16px;
+}
+.ds-code-warn b { color: var(--alert); font-weight: 600; font-size: 13px; }
+.ds-code-warn p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--on-paper-soft); }
+
+.ds-codebox {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--forest); border-radius: 14px; padding: 14px 15px;
+}
+.ds-codebox code {
+  flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 11.5px;
+  line-height: 1.6; color: var(--data-dark); word-break: break-all;
+}
+.ds-copy {
+  flex: none; padding: 9px 15px; border-radius: var(--r-pill); border: 0; cursor: pointer;
+  background: var(--lime); color: var(--lime-ink);
+  font: 500 12.5px/1 var(--font-body);
+  transition: transform .15s;
+}
+.ds-copy:hover { transform: translateY(-1px); }
+
+/* icon glyphs */
+.ds-ic-svg { width: 15px; height: 15px; display: block; }
+
+/* the guardians card stands alone now that entry moved into the drawer */
+.ds-split2--solo { grid-template-columns: minmax(0, 560px); justify-content: start; }
