@@ -1835,3 +1835,103 @@
   color: var(--alert); font-family: var(--font-mono); line-height: 1.5;
   word-break: break-word;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Pitch deck — four slides, scroll-snapped, one idea each.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.ds-deck { scroll-snap-type: y mandatory; height: 100vh; overflow-y: auto; }
+
+.ds-deckbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  display: flex; align-items: center; gap: 16px;
+  padding: 15px 30px;
+  background: rgba(233,235,241,.78); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--rule-soft);
+}
+.ds-deckbar-brand {
+  font-family: var(--font-display); font-weight: 600; font-size: 19px;
+  letter-spacing: -0.03em; color: var(--forest); text-decoration: none;
+}
+.ds-deckbar-meta {
+  margin-left: auto; font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--on-paper-faint);
+}
+.ds-deckbar-prog {
+  position: absolute; left: 0; bottom: -1px; height: 2px;
+  background: linear-gradient(90deg, var(--lime), var(--lime-deep));
+  transition: width .45s cubic-bezier(.2,.8,.3,1);
+}
+
+.ds-slide {
+  min-height: 100vh; scroll-snap-align: start;
+  display: grid; place-items: center; padding: 96px 30px 64px;
+}
+.ds-slide-in { width: 100%; max-width: 1000px; }
+
+/* content lifts in when the slide arrives */
+.ds-slide [data-r] { opacity: 0; transform: translateY(16px); }
+.ds-slide.is-in [data-r] {
+  animation: dsrise .74s cubic-bezier(.2,.75,.3,1) forwards;
+  animation-delay: var(--d, 0ms);
+}
+
+.ds-slide-eyebrow {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--on-paper-faint); margin: 0 0 20px;
+}
+.ds-slide-h {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(38px, 5.4vw, 72px); line-height: 1.02;
+  letter-spacing: -0.034em; color: var(--forest); margin: 0;
+}
+.ds-slide-h em { font-style: normal; color: var(--forest-mid); }
+.ds-slide-sub {
+  font-size: clamp(16px, 1.5vw, 19px); line-height: 1.6;
+  color: var(--on-paper-soft); max-width: 56ch; margin: 22px 0 0;
+}
+
+.ds-deck-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; align-items: center; }
+.ds-deck-list { display: grid; gap: 12px; margin: 30px 0 0; }
+.ds-deck-item {
+  display: flex; gap: 14px; align-items: flex-start;
+  padding: 17px 19px; border-radius: 16px;
+  background: var(--card); border: 1px solid var(--rule-soft);
+}
+.ds-deck-item b {
+  flex: none; width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--forest); color: var(--lime);
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+}
+.ds-deck-item p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--on-paper-soft); }
+.ds-deck-item strong { color: var(--forest); font-weight: 600; }
+
+.ds-deck-kv {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 34px;
+}
+.ds-deck-kv > div {
+  background: var(--card); border: 1px solid var(--rule-soft);
+  border-radius: 16px; padding: 20px;
+}
+.ds-deck-kv dt {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--on-paper-faint); margin-bottom: 9px;
+}
+.ds-deck-kv dd {
+  margin: 0; font-family: var(--font-display); font-weight: 600;
+  font-size: 26px; letter-spacing: -0.03em; color: var(--forest);
+}
+.ds-deck-kv small {
+  display: block; margin-top: 7px; font-family: var(--font-body);
+  font-size: 12.5px; font-weight: 400; color: var(--on-paper-soft); letter-spacing: 0;
+}
+
+@media (max-width: 900px) {
+  .ds-deck-cols { grid-template-columns: 1fr; gap: 28px; }
+  .ds-deck-kv { grid-template-columns: 1fr; }
+  .ds-slide { padding: 84px 20px 48px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ds-slide [data-r] { opacity: 1; transform: none; }
+}

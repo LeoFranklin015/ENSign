@@ -12,7 +12,6 @@ import {
   type Address,
   type Hex,
 } from "viem";
-import "../app/app.css";
 import { Nav } from "@/components/Nav";
 import { getSession } from "@/lib/session";
 import {
